@@ -17,7 +17,8 @@ Si estos cuatro divergen, el pipeline falla o —peor— castea en silencio.
 |---|---|
 | Database (Glue Data Catalog) | `teratrip_db` |
 | **Tabla (Athena)** | **`booking_analytics`** |
-| Archivo en S3 | `s3://<bucket>/curated/booking_analytics/teratrip_booking_analytics.parquet` |
+| Archivo en S3 | `s3://teratrip-data-lake-955030484229/curated/booking_analytics/teratrip_booking_analytics.parquet` |
+| Región | `us-east-1` |
 | WorkGroup de Athena | `wg-teratrip` |
 
 > El nombre de la **tabla** y el del **archivo** son distintos. El Crawler nombra la tabla según la
@@ -95,20 +96,25 @@ el job produjo lo esperado: si Athena devuelve otro número, el job hizo algo di
 > Las mutaciones del notebook del Lab 2 (`B999999`, `P999999`, 3 reservas pasadas a `cancelled`)
 > **se omitieron** deliberadamente. El baseline sale del dataset regenerado limpio.
 
-| Métrica | Valor esperado |
-|---|---|
-| `COUNT(*)` | **500.000** |
-| `booking_id` duplicados | 0 |
-| `SUM(total_amount)` | 443.699.397,57 |
-| `SUM(confirmed_revenue)` | 332.786.794,83 |
-| `AVG(payment_coverage_pct)` | 83,2960 |
-| `MIN(booking_date)` / `MAX(booking_date)` | 2024-01-01 / 2026-12-31 |
-| Reservas huérfanas (sin `customer`) | 0 |
-| `airline` nulos | 149.964 (= reservas `hotel`) |
-| `hotel_name` nulos | 200.289 (= reservas `flight`) |
-| `last_payment_method` nulos | 108.232 (reservas sin ningún pago aprobado) |
+Estado: **validado**. El Glue Job corrió el 2026-08-24 en Glue 5.1 y las 8 queries de
+`src/queries/00_athena_validation.sql` devolvieron exactamente estos valores en Athena.
+
+| Métrica | Valor esperado | Confirmado |
+|---|---|---|
+| `COUNT(*)` | **500.000** | 500.000 |
+| `booking_id` duplicados | 0 | 0 |
+| `SUM(total_amount)` | 443.699.397,57 | 4.4369939757E8 |
+| `SUM(confirmed_revenue)` | 332.786.794,83 | 3.3278679483E8 |
+| `AVG(payment_coverage_pct)` | 83,2960 | 83.3 |
+| `MIN(booking_date)` / `MAX(booking_date)` | 2024-01-01 / 2026-12-31 | ✅ |
+| Reservas huérfanas (sin `customer`) | 0 | 0 |
+| `airline` nulos | 149.964 (= reservas `hotel`) | 149964 |
+| `hotel_name` nulos | 200.289 (= reservas `flight`) | 200289 |
+| `last_payment_method` nulos | 108.232 (reservas sin ningún pago aprobado) | 108232 |
 
 ### Queries de validación en Athena
+
+El set completo está en `src/queries/00_athena_validation.sql`. Resumen:
 
 ```sql
 -- Conteo y duplicados
@@ -141,3 +147,56 @@ Después de correr el Crawler, verificar que la tabla haya quedado con:
 - `total_amount` y los cuatro campos monetarios derivados → `double`
 
 Si alguno quedó como `string`, el agente va a generar SQL que falla al agregar.
+
+---
+
+## Esquema de origen (`raw/`)
+
+Leído con esquema **explícito** en `src/glue_jobs/00_raw_to_curated.py`, nunca `inferSchema`: si el
+sample no trae decimales, `total_amount` se tipa `int` y el parquet resultante diverge del que espera
+el merge de la Fase 4.
+
+```
+bookings   booking_id STRING, customer_id STRING, booking_date STRING, destination_city STRING,
+           product_type STRING, flight_id STRING, hotel_id STRING, status STRING, total_amount DOUBLE
+payments   payment_id STRING, booking_id STRING, payment_method STRING, amount DOUBLE,
+           payment_status STRING
+customers  customer_id STRING, customer_name STRING, email STRING, country STRING, created_at STRING
+flights    flight_id STRING, origin_city STRING, destination_city STRING, airline STRING, price DOUBLE
+hotels     hotel_id STRING, hotel_name STRING, city STRING, stars INT, price_per_night DOUBLE
+```
+
+Ruta en S3: `raw/<tabla>/<tabla>.csv`.
+
+`email`, `created_at`, `flight_id`, `hotel_id`, `origin_city`, `price`, `city`, `stars`,
+`price_per_night` y `payment_id` se usan solo para los joins o se descartan: **no llegan a la tabla
+sábana**.
+
+---
+
+## Mapeo del documento PDF (Fases 1 y 3)
+
+Los 12 campos mínimos del documento y su destino. Es el contrato que implementa la Lambda de
+normalización.
+
+| Campo en el PDF | Destino |
+|---|---|
+| `booking_id` | `booking_id` |
+| `booking_date` | `booking_date` |
+| `customer_id` | `customer_id` |
+| `customer_name` | `customer_name` |
+| `customer_country` | `customer_country` |
+| `destination_city` | `destination_city` |
+| `product_type` | `product_type` |
+| `status` | `status` |
+| `total_amount` | `total_amount` |
+| `payment_amount` | insumo de `approved_paid_amount` |
+| `payment_status` | insumo de `approved_paid_amount` y `last_payment_method` |
+| `payment_method` | insumo de `last_payment_method` |
+
+Los campos derivados (3, 4, 14–20) **no** los calcula la normalización: los calcula el Glue Job del
+merge, para que exista una única fuente de verdad.
+
+`airline` y `hotel_name` quedan `NULL` en todo registro ingresado por documento. Es una limitación
+conocida que hay que documentar en la Knowledge Base: si el agente responde una pregunta sobre
+aerolíneas, esas reservas no aparecen.

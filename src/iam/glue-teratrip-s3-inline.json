@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListarElBucketDelDataLake",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::teratrip-data-lake-955030484229"
+    },
+    {
+      "Sid": "LeerFuentesDeDatos",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "arn:aws:s3:::teratrip-data-lake-955030484229/raw/*",
+        "arn:aws:s3:::teratrip-data-lake-955030484229/curated/*",
+        "arn:aws:s3:::teratrip-data-lake-955030484229/incoming-data/*"
+      ]
+    },
+    {
+      "Sid": "EscribirLaTablaSabanaYSuBackup",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::teratrip-data-lake-955030484229/curated/*"
+    }
+  ]
+}

@@ -365,11 +365,52 @@ Responder además las 4 preguntas del punto 11. Líneas de respuesta:
 
 ---
 
-### Fase 11 — Limpieza (post-walkthrough)
+### Fase 11 — Dashboard de monitoreo (CloudWatch)
+
+**Objetivo:** una sola pantalla para administrar los logs y la salud de todo el laboratorio, en lugar de
+saltar entre siete consolas distintas durante el walkthrough y el debugging.
+
+El pipeline reparte su telemetría entre servicios que no comparten consola: la Step Function muestra la
+traza pero no el detalle del error de la Lambda, Glue tiene su propio visor de logs, Textract y Bedrock
+publican métricas que nadie mira hasta que fallan. Cuando algo rompe en la demo, el costo real no es el
+fallo sino el tiempo de localizarlo. El dashboard resuelve eso y además da material concreto para la
+pregunta de investigación 4 (aislar si el problema estuvo en el RAG, el SQL, Athena o los datos).
+
+1. Dashboard `dash-teratrip-lab3`, definido en `src/monitoring/cloudwatch-dashboard.json` y creado en
+   consola con **Actions → View/edit source** pegando el JSON. Se versiona en el repo como cualquier
+   otro artefacto del laboratorio.
+
+2. Widgets por capa de la arquitectura:
+
+   | Sección | Métricas |
+   |---|---|
+   | Ingesta (Parte A) | Step Functions: `ExecutionsStarted`, `ExecutionsSucceeded`, `ExecutionsFailed`, `ExecutionTime`. Es el pulso del pipeline. |
+   | Lambdas | `Invocations`, `Errors`, `Duration`, `Throttles` de las cuatro funciones en un mismo gráfico, para comparar cuál se desvía. |
+   | Textract | `SuccessfulRequestCount`, `ThrottledCount`, `ServerErrorCount` (namespace `AWS/Textract`). |
+   | Glue | Métricas del job de merge (requiere **Job metrics habilitado** en la configuración del job). |
+   | Athena | `ProcessedBytes` y `QueryExecutionTime` filtrados por el WorkGroup `wg-teratrip` — vigila el gasto que genera el agente. |
+   | Agente (Parte B) | `InvocationLatency`, `InvocationClientErrors`, `InputTokenCount`, `OutputTokenCount` (namespace `AWS/Bedrock`). |
+   | Errores | Widget de **Logs Insights** agregando los log groups de las cuatro Lambdas y del Glue Job, filtrado a `ERROR`/`Exception`, ordenado por timestamp. Es el widget que más se usa en la práctica. |
+
+3. Queries de Logs Insights reutilizables en `src/monitoring/logs_insights_queries.md`: errores
+   agregados, trazabilidad de un `run_id` a través de las tres Lambdas, y el SQL que el agente generó
+   en cada invocación de la tool.
+
+4. **Retención de logs:** los log groups de Lambda nacen con *Never Expire*. Fijar retención a 1 semana
+   en todos los del laboratorio — es costo residual que sobrevive a la limpieza si no se toca.
+
+5. Dos alarmas mínimas: `ExecutionsFailed > 0` de la Step Function y `Errors > 0` agregado de las
+   Lambdas. Sin SNS asociado alcanza para que se vean en rojo en el dashboard durante el walkthrough.
+
+> Incluir el dashboard, las alarmas y los log groups en `TEARDOWN.md`.
+
+---
+
+### Fase 12 — Limpieza (post-walkthrough)
 
 Mantener `docs/TEARDOWN.md` con el inventario exacto, en este orden:
 
-1. Targets del Gateway → 2. Gateway → 3. Harness **y su memoria asociada** → 4. Knowledge Base **y su data source** → 5. Lambdas (textract, normalize, athena-query, validate) → 6. Step Function → 7. Regla de EventBridge → 8. Glue Job → 9. Objetos temporales en `incoming-documents/`, `incoming-data/`, `textract-raw/`, resultados de Athena → 10. Roles y policies IAM del laboratorio.
+1. Targets del Gateway → 2. Gateway → 3. Harness **y su memoria asociada** → 4. Knowledge Base **y su data source** → 5. Lambdas (textract, normalize, athena-query, validate) → 6. Step Function → 7. Regla de EventBridge → 8. Glue Job → 9. Objetos temporales en `incoming-documents/`, `incoming-data/`, `textract-raw/`, resultados de Athena → 10. Dashboard, alarmas y log groups de CloudWatch → 11. Roles y policies IAM del laboratorio.
 
 > Revisar explícitamente que no queden Knowledge Bases, memoria del Harness ni recursos del Gateway — son los que se olvidan y siguen generando costo.
 
@@ -398,6 +439,8 @@ Mantener `docs/TEARDOWN.md` con el inventario exacto, en este orden:
 | Targets | `teratrip-kb-target`, `teratrip-athena-target` | 8 |
 | Harness | `teratrip_analytics_agent` | 8 |
 | Roles IAM | uno por Lambda + Glue + Step Functions + EventBridge + Gateway | todas |
+| CloudWatch Dashboard | `dash-teratrip-lab3` | 11 |
+| CloudWatch Alarms | `alarm-teratrip-sfn-failed`, `alarm-teratrip-lambda-errors` | 11 |
 
 ---
 
@@ -425,6 +468,10 @@ Laboratorio 3/
 │   ├── stepfunctions/
 │   │   └── ingest_pipeline.asl.json
 │   ├── kb/                         # los 4 .md que se suben a S3
+│   ├── monitoring/                 # Fase 11 — dashboard y queries de Logs Insights
+│   │   ├── cloudwatch-dashboard.json
+│   │   └── logs_insights_queries.md
+│   ├── queries/                    # validaciones SQL de Athena
 │   ├── iam/                        # policies en JSON
 │   └── agent/
 │       └── system_prompt.md
@@ -464,7 +511,9 @@ Fase 1 ─┬─ Fase 2 → Fase 3 → Fase 4 → Fase 5   (Parte A)
                               Fase 9 (pruebas 1-3 con B lista,
                                       prueba 4 requiere A+B)
                                     ↓
-                              Fase 10 → walkthrough → Fase 11
+                              Fase 10 → Fase 11 (dashboard)
+                                    ↓
+                              walkthrough → Fase 12 (limpieza)
 ```
 
 La Fase 0 es bloqueante para todo: sin la tabla en Athena no se puede probar ni el agente ni el merge.
@@ -492,4 +541,8 @@ Recomendación: una vez cerrada la Fase 0, **empezar por la Parte B**. Es donde 
 - [ ] La prueba end-to-end refleja el cambio tras ingresar nuevas reservas → Prueba 4
 - [ ] Se aplican permisos IAM de mínimo privilegio → Fase 7 y todos los roles
 - [ ] Entregable: arquitectura + problemas encontrados → Fase 10
-- [ ] Limpieza completa post-walkthrough → Fase 11
+- [ ] Limpieza completa post-walkthrough → Fase 12
+
+**Extra (no es criterio de aprobación):**
+
+- [ ] Dashboard de CloudWatch centralizando logs y métricas del laboratorio → Fase 11
