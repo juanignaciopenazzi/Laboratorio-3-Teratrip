@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InvocarLasDosLambdasDelPipeline",
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": [
+        "arn:aws:lambda:us-east-1:955030484229:function:lambda-teratrip-textract-extract",
+        "arn:aws:lambda:us-east-1:955030484229:function:lambda-teratrip-normalize"
+      ]
+    },
+    {
+      "Sid": "LanzarYSeguirElJobDeMerge",
+      "Effect": "Allow",
+      "Action": [
+        "glue:StartJobRun",
+        "glue:GetJobRun",
+        "glue:GetJobRuns",
+        "glue:BatchStopJobRun"
+      ],
+      "Resource": "arn:aws:glue:us-east-1:955030484229:job/glue-teratrip-merge-curated"
+    }
+  ]
+}

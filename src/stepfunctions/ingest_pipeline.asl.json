@@ -1,0 +1,142 @@
+{
+  "Comment": "TeraTrip Lab 3 - Ingesta de reservas desde documentos. Textract -> normalizacion -> merge a la tabla sabana. Tipo Standard: el Glue Job dura minutos, Express no sirve.",
+  "StartAt": "ExtraerConTextract",
+  "States": {
+    "ExtraerConTextract": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Comment": "Recibe el evento de EventBridge tal cual. La Lambda deriva el run_id del eTag del objeto.",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:955030484229:function:lambda-teratrip-textract-extract",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "Retry": [
+        {
+          "Comment": "Solo errores transitorios. Un DocumentoInvalido es deterministico: reintentarlo solo quema tiempo y dinero.",
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException",
+            "ProvisionedThroughputExceededException",
+            "ThrottlingException"
+          ],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "FalloDelPipeline"
+        }
+      ],
+      "Next": "NormalizarRegistros"
+    },
+
+    "NormalizarRegistros": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Comment": "Mapea al esquema de TeraTrip y escribe el JSON Lines en incoming-data/<run_id>/.",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:955030484229:function:lambda-teratrip-normalize",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "FalloDelPipeline"
+        }
+      ],
+      "Next": "HayRegistrosNuevos"
+    },
+
+    "HayRegistrosNuevos": {
+      "Type": "Choice",
+      "Comment": "Si el documento no aporto ninguna fila valida, no tiene sentido levantar un cluster de Glue para no hacer nada.",
+      "Choices": [
+        {
+          "Variable": "$.record_count",
+          "NumericGreaterThan": 0,
+          "Next": "MergeATablaSabana"
+        }
+      ],
+      "Default": "SinRegistrosNuevos"
+    },
+
+    "SinRegistrosNuevos": {
+      "Type": "Succeed",
+      "Comment": "Terminacion exitosa. Revisar _rejected.json en incoming-data/<run_id>/ para ver por que se descarto cada fila."
+    },
+
+    "MergeATablaSabana": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Comment": "Patron .sync: la Step Function espera la finalizacion real del job, no solo el arranque.",
+      "Parameters": {
+        "JobName": "glue-teratrip-merge-curated",
+        "Arguments": {
+          "--INCOMING_PREFIX.$": "$.output_prefix"
+        }
+      },
+      "ResultPath": "$.glue",
+      "Retry": [
+        {
+          "Comment": "El merge es un read-modify-write sobre un archivo unico y el Job esta limitado a una corrida concurrente. Si llegan dos documentos a la vez, el segundo rebota con ConcurrentRunsExceededException: esperar y reintentar es exactamente lo correcto.",
+          "ErrorEquals": ["Glue.ConcurrentRunsExceededException"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 5,
+          "BackoffRate": 1.5
+        },
+        {
+          "ErrorEquals": [
+            "Glue.AWSGlueException",
+            "Glue.SdkClientException",
+            "States.Timeout"
+          ],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "FalloDelPipeline"
+        }
+      ],
+      "Next": "IngestaCompleta"
+    },
+
+    "IngestaCompleta": {
+      "Type": "Succeed",
+      "Comment": "Validar en Athena con src/queries/01_athena_post_merge.sql."
+    },
+
+    "FalloDelPipeline": {
+      "Type": "Fail",
+      "Comment": "Estado de fallo explicito para que la traza del walkthrough muestre en que paso rompio. El detalle del error queda en $.error de la ejecucion.",
+      "Error": "IngestaTeraTripFallida",
+      "Cause": "Fallo el pipeline de ingesta. Revisar el detalle en la entrada de este estado y los logs de la tarea anterior."
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "source": ["aws.s3"],
+  "detail-type": ["Object Created"],
+  "detail": {
+    "bucket": {
+      "name": ["teratrip-data-lake-955030484229"]
+    },
+    "object": {
+      "key": [
+        {
+          "wildcard": "incoming-documents/*.pdf"
+        }
+      ]
+    }
+  }
+}
