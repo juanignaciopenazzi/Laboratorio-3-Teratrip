@@ -105,15 +105,16 @@ no fabricar un resultado.
 
 ## Prueba 4 — End-to-end
 
-Ancla: el destino del PDF de demo que **no existe** en el dataset base.
+Ancla: **`Salvador de Bahia`**, el destino del PDF de demo que no existe entre los 31 del dataset base.
+El documento trae 8 reservas con 8 destinos distintos; solo esa fila estrena destino.
 
 ```sql
 -- (a) antes de subir el documento
-SELECT COUNT(*) FROM teratrip_db.booking_analytics WHERE destination_city = '<destino nuevo>';
+SELECT COUNT(*) FROM teratrip_db.booking_analytics WHERE destination_city = 'Salvador de Bahia';
 -- esperado: 0
 
 -- (d) después de que corra la Step Function
-SELECT COUNT(*) FROM teratrip_db.booking_analytics WHERE destination_city = '<destino nuevo>';
+SELECT COUNT(*) FROM teratrip_db.booking_analytics WHERE destination_city = 'Salvador de Bahia';
 -- esperado: 1
 
 -- refuerzo: conteo total
@@ -130,10 +131,48 @@ ORDER BY booking_id;
 -- airline y hotel_name deben venir NULL en los 8
 ```
 
+### Valores derivados esperados, fila por fila
+
+Es la verificación fina del Glue Job de merge: cada campo derivado calculado a partir de lo que trae el
+documento. `payment_coverage_pct` se muestra redondeado a 2 decimales.
+
+| booking_id | destino | status | total | confirmed_revenue | approved_paid | payment_gap | coverage % | is_conf | is_canc | last_payment_method |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B900001 | Madrid | confirmed | 1850.00 | 1850.00 | 1850.00 | 0.00 | 100.00 | true | false | credit_card |
+| B900002 | Salvador de Bahia | confirmed | 740.50 | 740.50 | 740.50 | 0.00 | 100.00 | true | false | debit_card |
+| B900003 | Cusco | confirmed | 980.00 | 980.00 | 600.00 | 380.00 | 61.22 | true | false | bank_transfer |
+| B900004 | Bariloche | cancelled | 1320.00 | 0.00 | 0.00 | 1320.00 | 0.00 | false | true | **NULL** |
+| B900005 | Punta del Este | confirmed | 560.75 | 560.75 | 560.75 | 0.00 | 100.00 | true | false | wallet |
+| B900006 | Valparaiso | pending | 430.00 | 0.00 | 0.00 | 430.00 | 0.00 | false | false | **NULL** |
+| B900007 | Iguazu | confirmed | 1590.90 | 1590.90 | 1590.90 | 0.00 | 100.00 | true | false | credit_card |
+| B900008 | Florianopolis | confirmed | 820.00 | 820.00 | 820.00 | 0.00 | 100.00 | true | false | cash |
+| **Total** | | | **8292.15** | **6542.15** | **6162.15** | **2130.00** | | | | |
+
+Los dos `NULL` de `last_payment_method` son la prueba de la regla que más fácil se rompe al portar la
+lógica del Lab 2: el documento **sí** trae `payment_method` en esas dos filas (`credit_card` y
+`debit_card`), pero como el pago no está `approved`, el campo debe quedar `NULL`. Si aparecen con
+método, el merge copió el campo a ciegas.
+
+`B900006` es además la única fila `pending` de las tres posibles combinaciones de `status`: verifica que
+`is_confirmed` e `is_cancelled` puedan ser ambos `false`.
+
+### Efecto en los agregados globales
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `COUNT(*)` | 500.000 | 500.008 |
+| `SUM(total_amount)` | 443.699.397,57 | 443.707.689,72 |
+| `SUM(confirmed_revenue)` | 332.786.794,83 | 332.793.336,98 |
+| `status = 'confirmed'` | 375.030 | 375.036 |
+| `status = 'cancelled'` | 75.000 | 75.001 |
+| `status = 'pending'` | 49.970 | 49.971 |
+| `destination_city = 'Salvador de Bahia'` | 0 | 1 |
+
 ---
 
 ## Prueba 5 — Idempotencia (extra, no pedida por la consigna)
 
-Volver a subir el mismo documento. `COUNT(*)` debe seguir en 500.008 y el anti-join del Glue Job debe
+Volver a subir el mismo documento (`teratrip_reservas_demo_v2.pdf`, mismos `booking_id` con otro
+`eTag`). `COUNT(*)` debe seguir en 500.008 y el anti-join del Glue Job debe
 loguear que descartó los 8 `booking_id`. Es lo que respalda el criterio de aprobación *"los registros se
 incorporan sin duplicar reservas existentes"*.
