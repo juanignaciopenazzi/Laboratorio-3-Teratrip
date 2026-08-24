@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EscribirLosRegistrosNormalizados",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::teratrip-data-lake-955030484229/incoming-data/*"
+    },
+    {
+      "Sid": "EscribirSusPropiosLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:955030484229:log-group:/aws/lambda/lambda-teratrip-normalize:*"
+    },
+    {
+      "Sid": "CrearSuGrupoDeLogs",
+      "Effect": "Allow",
+      "Action": "logs:CreateLogGroup",
+      "Resource": "arn:aws:logs:us-east-1:955030484229:*"
+    }
+  ]
+}
