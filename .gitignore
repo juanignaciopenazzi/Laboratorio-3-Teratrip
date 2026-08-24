@@ -1,0 +1,12 @@
+# Credenciales | KP - IAM user - .env
+credentials/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Salidas locales de trabajo
+*.log

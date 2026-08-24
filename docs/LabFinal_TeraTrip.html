@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Laboratorio Final — TeraTrip Intelligent Data &amp; Analytics</title>
+<style>
+    :root {
+      --purple-dark: #3b0764;
+      --purple-mid: #5b21b6;
+      --purple-light: #7c3aed;
+      --lime: #c8f031;
+      --lime-soft: #f3fad5;
+      --purple-soft: #f2eafd;
+      --white: #ffffff;
+      --gray-50: #faf8fc;
+      --gray-100: #f5f0fa;
+      --gray-200: #ded3e8;
+      --gray-300: #cbbbd9;
+      --text: #2f2437;
+      --amber: #b45309;
+      --amber-light: #fef3c7;
+      --red: #b91c1c;
+      --red-light: #fee2e2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--gray-50);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.56;
+    }
+    .page { max-width: 1120px; margin: 0 auto; padding: 40px 24px 72px; }
+    .cover {
+      background:
+        radial-gradient(circle at 86% 18%, rgba(200,240,49,.10), transparent 28%),
+        linear-gradient(115deg, var(--purple-dark) 0%, var(--purple-mid) 52%, var(--purple-light) 100%);
+      color: var(--white);
+      border: 1px solid rgba(200,240,49,.28);
+      border-radius: 18px;
+      padding: 42px;
+      margin-bottom: 22px;
+      box-shadow: 0 16px 44px rgba(59,7,100,.18);
+    }
+    .cover h1 {
+      margin: 0;
+      color: var(--lime);
+      font-size: 36px;
+      line-height: 1.18;
+      font-weight: 800;
+      font-style: italic;
+    }
+    .cover h2 {
+      margin: 10px 0 0;
+      color: var(--lime);
+      font-size: 21px;
+      font-weight: 500;
+    }
+    section {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 14px;
+      padding: 27px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 2px rgba(59,7,100,.04);
+    }
+    h2 {
+      margin: 0 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid rgba(200,240,49,.75);
+      color: var(--purple-dark);
+      font-size: 24px;
+    }
+    h3 { margin: 21px 0 9px; color: var(--purple-mid); font-size: 18px; }
+    p { margin: 8px 0 13px; }
+    ul, ol { margin: 8px 0 15px 22px; padding: 0; }
+    li { margin: 6px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 13px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--gray-300);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--purple-dark); color: var(--white); }
+    tr:nth-child(even) td { background: #faf7fc; }
+    code {
+      background: var(--purple-soft);
+      color: var(--purple-dark);
+      border-radius: 5px;
+      padding: 2px 5px;
+      font-size: 90%;
+    }
+    pre {
+      background: var(--purple-dark);
+      color: var(--lime);
+      border: 1px solid rgba(200,240,49,.28);
+      border-radius: 10px;
+      padding: 17px;
+      overflow-x: auto;
+      font-size: 13.5px;
+      line-height: 1.48;
+      margin: 12px 0 17px;
+    }
+    pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
+    .note, .success, .warning, .danger {
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .note { background: var(--purple-soft); border-left: 4px solid var(--purple-light); }
+    .success { background: var(--lime-soft); border-left: 4px solid #84a315; }
+    .warning { background: var(--amber-light); border-left: 4px solid var(--amber); }
+    .danger { background: var(--red-light); border-left: 4px solid var(--red); }
+    .badge {
+      display: inline-block;
+      background: var(--purple-soft);
+      color: var(--purple-mid);
+      border: 1px solid rgba(91,33,182,.16);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin: 4px 6px 4px 0;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 15px;
+      margin: 14px 0;
+    }
+    .card {
+      border: 1px solid var(--gray-200);
+      background: #fcfbfd;
+      border-radius: 11px;
+      padding: 17px;
+    }
+    .card h3 { margin-top: 0; }
+    .footer { color: var(--purple-mid); font-size: 13px; text-align: center; margin-top: 28px; }
+    @media (max-width: 760px) {
+      .page { padding: 24px 14px 42px; }
+      .cover { padding: 28px 22px; }
+      .cover h1 { font-size: 28px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      section { padding: 20px; }
+    }
+  
+    .architecture-board {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      margin: 18px 0;
+    }
+    .pipeline {
+      border: 1px solid var(--gray-200);
+      border-radius: 16px;
+      padding: 20px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbf8fd 100%);
+    }
+    .pipeline-title {
+      margin: 0 0 18px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--purple-dark);
+      color: var(--lime);
+      text-align: center;
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .arch-node {
+      border: 1px solid rgba(91,33,182,.24);
+      border-radius: 10px;
+      padding: 11px 12px;
+      background: var(--purple-soft);
+      color: var(--purple-dark);
+      text-align: center;
+      font-weight: 700;
+    }
+    .arch-node span {
+      display: block;
+      margin-top: 3px;
+      color: #66556f;
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .arch-node.highlight {
+      background: var(--lime-soft);
+      border-color: #a8c82b;
+    }
+    .arch-arrow {
+      text-align: center;
+      color: var(--purple-light);
+      font-size: 22px;
+      line-height: 1.05;
+      margin: 4px 0;
+      font-weight: 800;
+    }
+    .tool-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 8px 0;
+    }
+    .tool-split .arch-node {
+      font-size: 13px;
+      min-height: 82px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .architecture-result {
+      margin-top: 18px;
+      border-radius: 12px;
+      padding: 15px 18px;
+      text-align: center;
+      background: linear-gradient(115deg, var(--purple-dark), var(--purple-mid));
+      color: var(--white);
+      font-weight: 700;
+      border: 1px solid rgba(200,240,49,.35);
+    }
+    .architecture-result strong { color: var(--lime); }
+    @media (max-width: 760px) {
+      .architecture-board { grid-template-columns: 1fr; }
+      .tool-split { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+<main class="page">
+<header class="cover">
+<h1>Laboratorio Final — TeraTrip Intelligent Data &amp; Analytics</h1>
+<h2>Ingesta inteligente de documentos + agente conversacional sobre Athena</h2>
+</header>
+<section>
+<h2>1. Objetivo</h2>
+<p>Construir una solución end-to-end que permita a TeraTrip incorporar nuevas reservas desde documentos y luego consultar el dataset analítico utilizando lenguaje natural.</p>
+<p>El laboratorio reutiliza la <strong>tabla sábana curada del Laboratorio 2</strong> y agrega dos capacidades:</p>
+<ol>
+<li>Procesamiento automático de nuevas reservas mediante <strong>Textract</strong>.</li>
+<li>Un agente de <strong>Amazon Bedrock AgentCore</strong> capaz de convertir preguntas en SQL, consultar <strong>Athena</strong> y analizar los resultados.</li>
+</ol>
+<p>Está diseñado para completarse entre lunes y viernes, con acompañamiento de tutores e IA.</p>
+<span class="badge">S3</span>
+<span class="badge">EventBridge</span>
+<span class="badge">Step Functions</span>
+<span class="badge">Lambda</span>
+<span class="badge">Textract</span>
+<span class="badge">Glue</span>
+<span class="badge">Athena</span>
+<span class="badge">Bedrock AgentCore</span>
+<span class="badge">Knowledge Base</span>
+</section>
+<section>
+<h2>2. Punto de partida</h2>
+<p>Se asume que el Laboratorio 2 está completo y existe:</p>
+<ul>
+<li>El bucket de TeraTrip.</li>
+<li>La capa <code>curated/booking_analytics/</code>.</li>
+<li>El archivo <code>teratrip_booking_analytics.parquet</code>.</li>
+<li>La tabla correspondiente en Glue Data Catalog.</li>
+<li>La tabla consultable desde Athena.</li>
+</ul>
+<div class="warning">No reconstruir el pipeline anterior. El objetivo del laboratorio final es extenderlo.</div>
+</section>
+<section>
+<h2>3. Arquitectura final</h2>
+<div class="architecture-board">
+<div class="pipeline">
+<div class="pipeline-title">PARTE A · Intelligent Data Ingestion</div>
+<div class="arch-node">PDF con nuevas reservas<span>El intern genera su propio documento de prueba</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">Amazon S3<span>incoming-documents/</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">Amazon EventBridge<span>Detecta el nuevo objeto</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">AWS Step Functions<span>Orquesta el procesamiento</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">Amazon Textract<span>Extrae texto y tabla del documento</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">AWS Lambda<span>Normaliza al esquema de TeraTrip</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">Amazon S3<span>incoming-data/</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node highlight">Lambda o Glue<span>Elegir y fundamentar cómo actualizar la tabla sábana</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node highlight">Curated Parquet + Athena<span>Dataset actualizado y consultable</span></div>
+</div>
+<div class="pipeline">
+<div class="pipeline-title">PARTE B · Conversational Analytics</div>
+<div class="arch-node">Usuario<span>Pregunta en lenguaje natural</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">AgentCore Harness<span>Claude Haiku 4.5</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node">AgentCore Gateway<span>Autenticación IAM / SigV4</span></div>
+<div class="arch-arrow">↓</div>
+<div class="tool-split">
+<div class="arch-node">Managed Knowledge Base<span>Contexto del negocio, métricas y dataset</span></div>
+<div class="arch-node">Lambda Text-to-SQL<span>Ejecuta consultas seguras en Athena</span></div>
+</div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node highlight">Amazon Athena<span>booking_analytics</span></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-node highlight">Respuesta del agente<span>Analiza y explica los resultados</span></div>
+</div>
+</div>
+<div class="architecture-result">
+    Resultado esperado: <strong>subir un documento nuevo, actualizar el dataset y consultar esa nueva información con el agente.</strong>
+</div>
+</section>
+<section>
+<h2>4. Parte A — Ingesta inteligente de nuevas reservas</h2>
+<h3>Documento de entrada</h3>
+<p>Utilizar un PDF o imagen de <strong>una sola página</strong> con una tabla de entre 5 y 10 nuevas reservas.</p><div class="note">
+  Se entregan <strong>5 PDFs de ejemplo</strong> únicamente como referencia del tipo de documento esperado.
+  Cada intern debe generar su propio documento de prueba, pudiendo agregar reservas para clientes ya existentes
+  o incorporar nuevos clientes. No deben utilizar uno de los PDFs de ejemplo como archivo final de la demo.
+</div>
+<p>Como mínimo debe contener:</p>
+<table>
+<thead><tr><th>Campo</th><th>Ejemplo</th></tr></thead>
+<tbody>
+<tr><td><code>booking_id</code></td><td>B9001</td></tr>
+<tr><td><code>booking_date</code></td><td>2026-08-25</td></tr>
+<tr><td><code>customer_id</code></td><td>C221</td></tr>
+<tr><td><code>customer_name</code></td><td>Ana Pérez</td></tr>
+<tr><td><code>customer_country</code></td><td>Argentina</td></tr>
+<tr><td><code>destination_city</code></td><td>Madrid</td></tr>
+<tr><td><code>product_type</code></td><td>package</td></tr>
+<tr><td><code>status</code></td><td>confirmed</td></tr>
+<tr><td><code>total_amount</code></td><td>1200</td></tr>
+<tr><td><code>payment_amount</code></td><td>1200</td></tr>
+<tr><td><code>payment_status</code></td><td>approved</td></tr>
+<tr><td><code>payment_method</code></td><td>credit_card</td></tr>
+</tbody>
+</table>
+<h3>Procesamiento automático</h3>
+<ol>
+<li>El documento se deposita en <code>incoming-documents/</code>.</li>
+<li>S3 genera un evento que EventBridge utiliza para iniciar una Step Function.</li>
+<li>Una Lambda invoca Textract para detectar texto y tablas.</li>
+<li>Una segunda Lambda transforma la respuesta de Textract al esquema esperado.</li>
+<li>Los registros normalizados se escriben en <code>incoming-data/</code>.</li>
+<li>La Step Function ejecuta el Glue Job que incorpora esos registros al dataset curado.</li>
+<li>Se valida en Athena que los nuevos <code>booking_id</code> estén disponibles.</li>
+</ol>
+<div class="note">Para mantener el alcance manejable, el formato del documento es conocido y de una sola página. No se busca construir un parser genérico para cualquier factura o documento.</div>
+</section>
+<section>
+<h2>5. Actualización de la tabla sábana</h2>
+<p>Los registros normalizados quedan disponibles en <code>incoming-data/</code>. A partir de allí, cada intern debe elegir <strong>Lambda o Glue</strong> para incorporarlos al dataset curado.</p>
+<div class="grid-2">
+<div class="card">
+<h3>Opción A · Lambda</h3>
+<p>Adecuada para el bajo volumen del laboratorio y transformaciones simples. Puede leer el Parquet actual, incorporar las nuevas reservas, validar duplicados y volver a escribir la tabla sábana.</p>
+</div>
+<div class="card">
+<h3>Opción B · Glue</h3>
+<p>Permite reutilizar el enfoque de Data Engineering visto en laboratorios anteriores y deja una solución más preparada para crecer en volumen o complejidad.</p>
+</div>
+</div>
+<p>No hay una opción obligatoria: <strong>la elección debe estar fundamentada</strong> según volumen, complejidad, costo y escalabilidad.</p>
+<p>Independientemente de la herramienta elegida, el proceso debe:</p>
+<ul>
+<li>Leer los nuevos registros desde <code>incoming-data/</code>.</li>
+<li>Normalizar los tipos necesarios.</li>
+<li>Evitar duplicar un <code>booking_id</code> existente.</li>
+<li>Generar los campos derivados requeridos por la tabla sábana.</li>
+<li>Mantener una única fila por reserva.</li>
+<li>Actualizar de forma controlada <code>teratrip_booking_analytics.parquet</code>.</li>
+</ul>
+<div class="danger">El mismo documento no debe poder generar dos veces la misma reserva. La solución debe contemplar al menos una validación por <code>booking_id</code>.</div>
+</section>
+<section>
+<h2>6. Parte B — Knowledge Base del negocio</h2>
+<p>Crear una <strong>Managed Knowledge Base</strong> que le dé al agente el contexto necesario para interpretar correctamente el dataset y las preguntas de negocio.</p>
+<p>Se recomienda incluir información sobre:</p>
+<ul>
+<li><strong>Diccionario de datos:</strong> columnas disponibles, tipos y significado.</li>
+<li><strong>Reglas de negocio:</strong> reservas confirmadas, cancelaciones, pagos y relaciones entre los datos.</li>
+<li><strong>Definición de métricas:</strong> revenue confirmado, tasa de cancelación, cobertura de pagos y otras métricas relevantes.</li>
+<li><strong>Contexto del dataset:</strong> qué representa la tabla sábana, su granularidad y principales casos de uso.</li>
+</ul>
+<p>Cada intern debe decidir <strong>cómo organizar esa información y en qué formato compatible con la Knowledge Base</strong>. La decisión deberá ser fundamentada durante el walkthrough.</p>
+<div class="note">La Knowledge Base contiene conocimiento sobre el dataset y el negocio. Los registros de la tabla no deben cargarse en RAG: los datos estructurados se consultan mediante Athena.</div>
+</section>
+<section>
+<h2>7. Agente de Analytics</h2>
+<p>Crear un agente utilizando:</p>
+<ul>
+<li><strong>AgentCore Harness.</strong></li>
+<li><strong>Claude Haiku 4.5</strong> como modelo.</li>
+<li><strong>Gateway con autenticación IAM / SigV4.</strong></li>
+<li>Managed Knowledge Base como un target.</li>
+<li>Lambda de Athena como segundo target.</li>
+</ul>
+<h3>Convenciones importantes</h3>
+<ul>
+<li>El nombre del <strong>Harness</strong> debe usar letras, números y <code>_</code>. No usar guiones.</li>
+<li>Los <strong>targets del Gateway</strong> deben utilizar guiones y no guiones bajos.</li>
+<li>El rol de ejecución del Gateway necesita explícitamente <code>lambda:InvokeFunction</code> sobre la Lambda.</li>
+<li>No utilizar Cognito/JWT para este laboratorio. Utilizar IAM.</li>
+<li>No implementar Guardrails como requisito del laboratorio.</li>
+</ul>
+</section>
+<section>
+<h2>8. Tool de Text-to-SQL</h2>
+<p>Crear una Lambda expuesta al agente como una herramienta:</p>
+<pre><code>execute_athena_query(sql_query)</code></pre>
+<p>El agente deberá:</p>
+<ol>
+<li>Interpretar la pregunta del usuario.</li>
+<li>Consultar la Knowledge Base cuando necesite entender columnas, métricas o reglas.</li>
+<li>Generar una consulta SQL.</li>
+<li>Enviar el SQL a la herramienta.</li>
+<li>Recibir el resultado de Athena.</li>
+<li>Responder en lenguaje natural.</li>
+</ol>
+<h3>Ejemplo</h3>
+<pre><code>Usuario:
+¿Cuál fue el destino con más revenue confirmado?
+
+Agente:
+SELECT destination_city,
+       SUM(confirmed_revenue) AS revenue
+FROM booking_analytics
+GROUP BY destination_city
+ORDER BY revenue DESC
+LIMIT 1;
+
+Athena:
+Madrid | 42500
+
+Agente:
+Madrid fue el destino con mayor revenue confirmado,
+con un total de 42.500.</code></pre>
+<h3>Restricciones obligatorias</h3>
+<ul>
+<li>Permitir únicamente <code>SELECT</code> y <code>WITH ... SELECT</code>.</li>
+<li>Bloquear <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>DROP</code>, <code>CREATE</code>, <code>ALTER</code> y operaciones similares.</li>
+<li>Permitir consultas únicamente sobre la tabla del laboratorio.</li>
+<li>Limitar la cantidad de filas retornadas.</li>
+<li>Aplicar mínimo privilegio en IAM para Athena y S3.</li>
+</ul>
+</section>
+<section>
+<h2>9. Pruebas obligatorias</h2>
+<h3>Prueba 1 — Analytics</h3>
+<ul>
+<li>¿Cuál es el destino con mayor revenue confirmado?</li>
+<li>¿Cuántas reservas canceladas tenemos?</li>
+<li>¿Cuál es el revenue confirmado por tipo de producto?</li>
+<li>¿Qué país tiene más clientes?</li>
+</ul>
+<h3>Prueba 2 — Uso de conocimiento</h3>
+<p>Realizar una pregunta que requiera entender una regla del negocio o una métrica definida en la Knowledge Base.</p>
+<h3>Prueba 3 — Seguridad</h3>
+<p>Intentar que el agente ejecute una operación que modifique datos. La herramienta debe rechazarla.</p>
+<h3>Prueba 4 — End-to-end</h3>
+<ol>
+<li>Consultar al agente cuántas reservas existen para un destino.</li>
+<li>Subir un nuevo documento con reservas para ese destino.</li>
+<li>Esperar que finalice el pipeline.</li>
+<li>Consultar nuevamente al agente.</li>
+<li>Validar que la respuesta contemple los nuevos registros.</li>
+</ol>
+<div class="success">Esta última prueba es el resultado principal esperado del laboratorio final.</div>
+</section>
+
+<section>
+<h2>10. Walkthrough y entregable</h2>
+<p>El único entregable documental será un documento breve que contenga:</p>
+<ul>
+<li><strong>Arquitectura implementada.</strong></li>
+<li><strong>Problemas encontrados y cómo fueron resueltos.</strong></li>
+</ul>
+<p>El resto será presentado directamente en AWS mediante un <strong>walkthrough de la ejecución completa del pipeline</strong>, incluyendo la Parte A y la Parte B.</p>
+<p>Durante el walkthrough se deberá demostrar:</p>
+<ul>
+<li>Ingreso del documento en S3 y disparo automático del flujo.</li>
+<li>Procesamiento con Textract y normalización de los registros.</li>
+<li>Actualización de la tabla sábana mediante Lambda o Glue.</li>
+<li>Validación de los nuevos registros en Athena.</li>
+<li>Knowledge Base, Harness, Gateway y herramientas del agente.</li>
+<li>Consulta en lenguaje natural, SQL generado, resultado de Athena y respuesta final.</li>
+<li>Prueba end-to-end antes y después de incorporar nuevas reservas.</li>
+</ul>
+</section>
+<section>
+<h2>11. Preguntas para investigar</h2>
+<ol>
+<li>¿Qué cambiarían si en lugar de un PDF de una página recibieran PDFs de decenas o cientos de páginas?</li>
+<li>¿Cómo evitarían procesar dos veces el mismo documento si S3 o el pipeline generaran más de un evento?</li>
+
+<li>¿Cómo validarían automáticamente que la respuesta del agente coincide con los datos realmente devueltos por Athena?</li>
+<li>Si una respuesta del agente es incorrecta, ¿cómo determinarían si el problema estuvo en el RAG, en el SQL generado, en Athena o en los datos de origen?</li>
+</ol>
+</section>
+<section>
+<h2>12. Criterios de aprobación</h2>
+<ul>
+<li>Un archivo nuevo en S3 inicia automáticamente el flujo de procesamiento.</li>
+<li>Textract extrae correctamente las reservas del documento.</li>
+<li>Los registros se incorporan sin duplicar reservas existentes.</li>
+<li>La tabla sábana se actualiza y Athena devuelve los nuevos registros.</li>
+<li>La Knowledge Base contiene contexto del dataset y reglas de negocio.</li>
+<li>El agente genera SQL válido y consulta Athena mediante una herramienta.</li>
+<li>La Lambda rechaza operaciones SQL no permitidas.</li>
+<li>La traza del agente permite identificar las herramientas utilizadas.</li>
+<li>La prueba end-to-end refleja el cambio después de ingresar nuevas reservas.</li>
+<li>Se aplican permisos IAM de mínimo privilegio.</li>
+</ul>
+</section>
+<section>
+<h2>13. Limpieza obligatoria</h2>
+<p>La limpieza se realizará después del walkthrough. Eliminar los recursos creados exclusivamente para este laboratorio.</p>
+<ol>
+<li>Targets del AgentCore Gateway.</li>
+<li>AgentCore Gateway.</li>
+<li>Harness y memoria asociada.</li>
+<li>Managed Knowledge Base y su fuente de datos.</li>
+<li>Lambdas creadas para Textract, normalización y Athena.</li>
+<li>Step Function.</li>
+<li>Reglas de EventBridge.</li>
+<li>Lambda o Glue Job utilizado para actualizar la tabla sábana, junto con los recursos auxiliares creados para ese proceso.</li>
+<li>Objetos temporales en <code>incoming-documents/</code>, <code>incoming-data/</code> y resultados temporales de Athena.</li>
+<li>Roles y policies IAM exclusivos del laboratorio.</li>
+</ol>
+<div class="danger">Revisar especialmente que no queden Managed Knowledge Bases, memoria del Harness ni recursos del Gateway creados para el laboratorio.</div>
+</section>
+<p class="footer">TeraTrip Internship — Laboratorio Final — AWS Data Engineering &amp; AI</p>
+</main>
+</body>
+</html>
