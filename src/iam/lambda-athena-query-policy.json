@@ -1,0 +1,71 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EjecutarConsultasSoloEnElWorkGroupDelLaboratorio",
+      "Effect": "Allow",
+      "Action": [
+        "athena:StartQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:StopQueryExecution"
+      ],
+      "Resource": "arn:aws:athena:us-east-1:955030484229:workgroup/wg-teratrip"
+    },
+    {
+      "Sid": "LeerElCatalogoSoloDeEsaTabla",
+      "Effect": "Allow",
+      "Action": [
+        "glue:GetDatabase",
+        "glue:GetTable",
+        "glue:GetPartitions"
+      ],
+      "Resource": [
+        "arn:aws:glue:us-east-1:955030484229:catalog",
+        "arn:aws:glue:us-east-1:955030484229:database/teratrip_db",
+        "arn:aws:glue:us-east-1:955030484229:table/teratrip_db/booking_analytics"
+      ]
+    },
+    {
+      "Sid": "LeerElParquetCurado",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::teratrip-data-lake-955030484229/curated/booking_analytics/*"
+    },
+    {
+      "Sid": "VerificarElBucketDeSalidaDeAthena",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::teratrip-data-lake-955030484229"
+    },
+    {
+      "Sid": "EscribirYLeerLosResultadosDeAthena",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": "arn:aws:s3:::teratrip-data-lake-955030484229/athena-results/*"
+    },
+    {
+      "Sid": "EscribirSusPropiosLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:955030484229:log-group:/aws/lambda/lambda-teratrip-athena-query:*"
+    },
+    {
+      "Sid": "CrearSuGrupoDeLogs",
+      "Effect": "Allow",
+      "Action": "logs:CreateLogGroup",
+      "Resource": "arn:aws:logs:us-east-1:955030484229:*"
+    }
+  ]
+}
