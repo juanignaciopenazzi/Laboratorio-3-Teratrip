@@ -137,118 +137,126 @@ SQL_DERIVADOS = """
 """
 
 
-def terminar(mensaje):
-    """Sale con exito sin reescribir nada. Reescribir la tabla entera para dejarla
-    igual seria trabajo y riesgo gratuitos."""
-    print(mensaje)
-    job.commit()
-    sys.exit(0)
+def main():
+    """Cuerpo del job.
 
+    Va en una funcion para poder cortar temprano con `return`. NUNCA usar
+    sys.exit() en un Glue Job: el runner de Glue intercepta cualquier SystemExit
+    y marca la corrida como FAILED con SYSTEM_EXIT_ERROR, aunque el codigo de
+    salida sea 0. La Step Function lo ve como States.TaskFailed y cae al Catch,
+    de modo que una terminacion legitima (nada para incorporar) se reporta como
+    un fallo del pipeline.
+    """
+    # --- 1. Verificar que exista la tabla actual --------------------------------------
 
-# --- 1. Verificar que exista la tabla actual --------------------------------------
-
-existe = s3.list_objects_v2(Bucket=bucket, Prefix=FINAL_KEY, MaxKeys=1).get("KeyCount", 0)
-if not existe:
-    # Falla ruidosa a proposito. Si la tabla curada no esta, algo se borro o el
-    # bootstrap no corrio: escribir aca dejaria una tabla sabana de 8 filas
-    # pisando el dataset de 500.000, y el fallo recien se veria en Athena.
-    raise RuntimeError(
-        "No existe s3://" + bucket + "/" + FINAL_KEY + ". "
-        "Correr primero el Job de bootstrap (Fase 0). El merge no crea la tabla."
-    )
-
-# --- 2. Backup antes de tocar nada ------------------------------------------------
-
-timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-backup_key = BACKUP_DIR + timestamp + "/teratrip_booking_analytics.parquet"
-s3.copy_object(
-    CopySource={"Bucket": bucket, "Key": FINAL_KEY},
-    Bucket=bucket,
-    Key=backup_key,
-)
-print("Backup: s3://" + bucket + "/" + backup_key)
-
-# --- 3. Leer ambos lados ----------------------------------------------------------
-
-df_current = spark.read.parquet("s3://" + bucket + "/" + CURATED_DIR)
-total_antes = df_current.count()
-print("Tabla sabana actual: " + str(total_antes) + " filas")
-
-ruta_nuevos = "s3://" + bucket + "/" + incoming_prefix
-print("Leyendo registros nuevos desde " + ruta_nuevos)
-# Spark ignora los archivos que empiezan con _ o . al leer un directorio, asi
-# que _rejected.json no entra como dato.
-df_new = spark.read.schema(SCHEMA_NUEVOS).json(ruta_nuevos)
-
-recibidos = df_new.count()
-print("Registros recibidos: " + str(recibidos))
-if recibidos == 0:
-    terminar("No hay registros nuevos. La tabla queda intacta.")
-
-# --- 4. Deduplicar dentro del batch -----------------------------------------------
-
-df_new = df_new.dropDuplicates(["booking_id"])
-tras_dedup = df_new.count()
-if tras_dedup < recibidos:
-    print("Duplicados dentro del documento descartados: " + str(recibidos - tras_dedup))
-
-# --- 5. Anti-join: descartar los booking_id que ya existen ------------------------
-
-df_inedito = df_new.join(df_current.select("booking_id"), on="booking_id", how="left_anti")
-inedito = df_inedito.count()
-print("Ya existian (descartados por anti-join): " + str(tras_dedup - inedito))
-print("A incorporar: " + str(inedito))
-
-if inedito == 0:
-    # Este es el camino que recorre la prueba de idempotencia: subir dos veces el
-    # mismo documento no cambia el conteo.
-    terminar("Todos los booking_id ya estaban en la tabla. Nada que incorporar.")
-
-# --- 6. Campos derivados ----------------------------------------------------------
-
-df_inedito.createOrReplaceTempView("nuevos")
-df_derivado = spark.sql(SQL_DERIVADOS)
-
-# --- 7. Union con select explicito en ambos lados ---------------------------------
-
-df_final = df_current.select(*COLUMNAS).unionByName(df_derivado.select(*COLUMNAS)).cache()
-total_despues = df_final.count()
-print("Tabla sabana resultante: " + str(total_antes) + " -> " + str(total_despues))
-
-if total_despues != total_antes + inedito:
-    raise RuntimeError(
-        "Conteo inconsistente: esperaba " + str(total_antes + inedito) +
-        " y obtuve " + str(total_despues) + ". No se reescribe la tabla."
-    )
-
-# --- 8. Escribir a temporal y renombrar al nombre final ---------------------------
-
-temp_path = "s3://" + bucket + "/" + TEMP_PREFIX
-df_final.coalesce(1).write.mode("overwrite").parquet(temp_path)
-
-resp = s3.list_objects_v2(Bucket=bucket, Prefix=TEMP_PREFIX)
-escrito = False
-for obj in resp.get("Contents", []):
-    if obj["Key"].endswith(".parquet"):
-        s3.copy_object(
-            CopySource={"Bucket": bucket, "Key": obj["Key"]},
-            Bucket=bucket,
-            Key=FINAL_KEY,
+    existe = s3.list_objects_v2(Bucket=bucket, Prefix=FINAL_KEY, MaxKeys=1).get("KeyCount", 0)
+    if not existe:
+        # Falla ruidosa a proposito. Si la tabla curada no esta, algo se borro o el
+        # bootstrap no corrio: escribir aca dejaria una tabla sabana de 8 filas
+        # pisando el dataset de 500.000, y el fallo recien se veria en Athena.
+        raise RuntimeError(
+            "No existe s3://" + bucket + "/" + FINAL_KEY + ". "
+            "Correr primero el Job de bootstrap (Fase 0). El merge no crea la tabla."
         )
-        escrito = True
-        break
 
-if not escrito:
-    raise RuntimeError(
-        "Spark no dejo ningun .parquet en " + TEMP_PREFIX +
-        ". La tabla NO fue modificada; el backup esta en " + backup_key
+    # --- 2. Leer ambos lados ----------------------------------------------------------
+
+    df_current = spark.read.parquet("s3://" + bucket + "/" + CURATED_DIR)
+    total_antes = df_current.count()
+    print("Tabla sabana actual: " + str(total_antes) + " filas")
+
+    ruta_nuevos = "s3://" + bucket + "/" + incoming_prefix
+    print("Leyendo registros nuevos desde " + ruta_nuevos)
+    # Spark ignora los archivos que empiezan con _ o . al leer un directorio, asi
+    # que _rejected.json no entra como dato.
+    df_new = spark.read.schema(SCHEMA_NUEVOS).json(ruta_nuevos)
+
+    recibidos = df_new.count()
+    print("Registros recibidos: " + str(recibidos))
+    if recibidos == 0:
+        print("No hay registros nuevos. La tabla queda intacta.")
+        return
+
+    # --- 3. Deduplicar dentro del batch -----------------------------------------------
+
+    df_new = df_new.dropDuplicates(["booking_id"])
+    tras_dedup = df_new.count()
+    if tras_dedup < recibidos:
+        print("Duplicados dentro del documento descartados: " + str(recibidos - tras_dedup))
+
+    # --- 4. Anti-join: descartar los booking_id que ya existen ------------------------
+
+    df_inedito = df_new.join(df_current.select("booking_id"), on="booking_id", how="left_anti")
+    inedito = df_inedito.count()
+    print("Ya existian (descartados por anti-join): " + str(tras_dedup - inedito))
+    print("A incorporar: " + str(inedito))
+
+    if inedito == 0:
+        # Este es el camino que recorre la prueba de idempotencia: subir dos veces el
+        # mismo documento no cambia el conteo.
+        print("Todos los booking_id ya estaban en la tabla. Nada que incorporar.")
+        return
+
+    # --- 5. Campos derivados ----------------------------------------------------------
+
+    df_inedito.createOrReplaceTempView("nuevos")
+    df_derivado = spark.sql(SQL_DERIVADOS)
+
+    # --- 6. Union con select explicito en ambos lados ---------------------------------
+
+    df_final = df_current.select(*COLUMNAS).unionByName(df_derivado.select(*COLUMNAS)).cache()
+    total_despues = df_final.count()
+    print("Tabla sabana resultante: " + str(total_antes) + " -> " + str(total_despues))
+
+    if total_despues != total_antes + inedito:
+        raise RuntimeError(
+            "Conteo inconsistente: esperaba " + str(total_antes + inedito) +
+            " y obtuve " + str(total_despues) + ". No se reescribe la tabla."
+        )
+
+    # --- 7. Backup y escritura ---------------------------------------------------------
+
+    # El backup va aca y no al principio: las corridas que no incorporan nada
+    # (documento repetido, anti-join que descarta todo) no tocan la tabla, y
+    # copiarla igual llenaria curated/_backup/ de copias identicas.
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup_key = BACKUP_DIR + timestamp + "/teratrip_booking_analytics.parquet"
+    s3.copy_object(
+        CopySource={"Bucket": bucket, "Key": FINAL_KEY},
+        Bucket=bucket,
+        Key=backup_key,
     )
+    print("Backup: s3://" + bucket + "/" + backup_key)
 
-for obj in resp.get("Contents", []):
-    s3.delete_object(Bucket=bucket, Key=obj["Key"])
+    temp_path = "s3://" + bucket + "/" + TEMP_PREFIX
+    df_final.coalesce(1).write.mode("overwrite").parquet(temp_path)
 
-print("Tabla sabana actualizada: s3://" + bucket + "/" + FINAL_KEY)
-print("Filas: " + str(total_despues) + " (+" + str(inedito) + ")")
+    resp = s3.list_objects_v2(Bucket=bucket, Prefix=TEMP_PREFIX)
+    escrito = False
+    for obj in resp.get("Contents", []):
+        if obj["Key"].endswith(".parquet"):
+            s3.copy_object(
+                CopySource={"Bucket": bucket, "Key": obj["Key"]},
+                Bucket=bucket,
+                Key=FINAL_KEY,
+            )
+            escrito = True
+            break
+
+    if not escrito:
+        raise RuntimeError(
+            "Spark no dejo ningun .parquet en " + TEMP_PREFIX +
+            ". La tabla NO fue modificada; el backup esta en " + backup_key
+        )
+
+    for obj in resp.get("Contents", []):
+        s3.delete_object(Bucket=bucket, Key=obj["Key"])
+
+    print("Tabla sabana actualizada: s3://" + bucket + "/" + FINAL_KEY)
+    print("Filas: " + str(total_despues) + " (+" + str(inedito) + ")")
+
+
+main()
 
 job.commit()
 print("Job completado con exito.")
