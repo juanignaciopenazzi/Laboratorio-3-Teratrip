@@ -1,0 +1,104 @@
+# Diccionario de datos — tabla `booking_analytics`
+
+## Identificación de la tabla
+
+La única tabla consultable es **`booking_analytics`**, en la database **`teratrip_db`** del catálogo de
+Amazon Athena. El nombre completamente calificado es **`teratrip_db.booking_analytics`**.
+
+Ambas formas son válidas en una consulta:
+
+```sql
+SELECT COUNT(*) FROM booking_analytics;
+SELECT COUNT(*) FROM teratrip_db.booking_analytics;
+```
+
+No existe ninguna otra tabla disponible. No hay tablas `customers`, `bookings`, `payments`, `flights`
+ni `hotels`: toda la información está desnormalizada en `booking_analytics`. Cualquier consulta que
+referencie otra tabla va a ser rechazada.
+
+## Columnas de `booking_analytics`
+
+La tabla tiene exactamente 20 columnas. Estos son sus nombres literales; no existe ninguna otra.
+
+### Identificación y fecha
+
+| Columna | Tipo | Significado |
+|---|---|---|
+| `booking_id` | `string` | Identificador único de la reserva. Es la clave primaria: hay exactamente una fila por `booking_id`. |
+| `booking_date` | `date` | Fecha en que se realizó la reserva. |
+| `booking_year` | `int` | Año de `booking_date`. Existe como columna propia para evitar tener que extraerlo con una función. |
+| `booking_month` | `int` | Mes de `booking_date`, de 1 a 12. Es el número de mes, sin el año: `booking_month = 3` agrupa todos los marzos de todos los años. |
+
+### Producto y estado
+
+| Columna | Tipo | Significado |
+|---|---|---|
+| `destination_city` | `string` | Ciudad de destino del viaje. |
+| `product_type` | `string` | Tipo de producto contratado. Valores posibles: `flight`, `hotel`, `package`. |
+| `status` | `string` | Estado de la reserva. Valores posibles: `confirmed`, `cancelled`, `pending`. |
+
+### Cliente
+
+| Columna | Tipo | Significado |
+|---|---|---|
+| `customer_id` | `string` | Identificador del cliente. **Se repite entre filas**: un mismo cliente puede tener muchas reservas. |
+| `customer_name` | `string` | Nombre del cliente. |
+| `customer_country` | `string` | País del cliente. Es el país de residencia del cliente, **no** el país del destino del viaje. |
+
+### Proveedor
+
+| Columna | Tipo | Significado |
+|---|---|---|
+| `airline` | `string` | Aerolínea del vuelo asociado. Es `NULL` cuando la reserva no incluye vuelo. |
+| `hotel_name` | `string` | Nombre del hotel asociado. Es `NULL` cuando la reserva no incluye hotel. |
+
+### Montos y pagos
+
+| Columna | Tipo | Significado |
+|---|---|---|
+| `total_amount` | `double` | Monto total de la reserva, en dólares. Es lo que la reserva vale, independientemente de su estado y de si se cobró. |
+| `confirmed_revenue` | `double` | Igual a `total_amount` si `status = 'confirmed'`; en cualquier otro caso vale `0.0`. Es la columna que hay que sumar para medir ingresos. |
+| `approved_paid_amount` | `double` | Suma de los pagos **aprobados** de la reserva. Vale `0.0` si la reserva no tiene ningún pago aprobado. |
+| `payment_gap` | `double` | `total_amount - approved_paid_amount`. Cuánto falta cobrar de esa reserva. Puede ser `0` si está totalmente cobrada. |
+| `payment_coverage_pct` | `double` | Porcentaje del total que ya fue cobrado con pagos aprobados, de 0 a 100. Vale `0.0` si `total_amount` es `0` o negativo. |
+
+### Banderas derivadas
+
+| Columna | Tipo | Significado |
+|---|---|---|
+| `is_confirmed` | `boolean` | `true` si `status = 'confirmed'`. |
+| `is_cancelled` | `boolean` | `true` si `status = 'cancelled'`. |
+| `last_payment_method` | `string` | Método del pago aprobado de la reserva. Es `NULL` si la reserva no tiene ningún pago aprobado. Valores posibles: `credit_card`, `debit_card`, `wallet`, `bank_transfer`, `cash`. |
+
+Una reserva `pending` tiene `is_confirmed = false` **y** `is_cancelled = false`. Las dos banderas no son
+complementarias: son tres estados, no dos.
+
+## Valores posibles de las columnas categóricas
+
+Estos dominios son cerrados y estables:
+
+- `status`: `confirmed`, `cancelled`, `pending`
+- `product_type`: `flight`, `hotel`, `package`
+- `last_payment_method`: `credit_card`, `debit_card`, `wallet`, `bank_transfer`, `cash`, o `NULL`
+
+Todos los valores se guardan en **minúsculas**. Una comparación como `WHERE status = 'Confirmed'` no
+devuelve nada.
+
+`destination_city`, `customer_country`, `airline` y `hotel_name` son dominios abiertos: sus valores
+cambian a medida que se ingresan reservas nuevas. Para conocerlos hay que consultarlos, por ejemplo con
+`SELECT DISTINCT destination_city FROM booking_analytics`. Estos valores sí conservan mayúsculas
+iniciales, por ejemplo `Cancun`, `Buenos Aires`, `Argentina`.
+
+## Limitación conocida: reservas ingresadas por documento
+
+Algunas reservas de `booking_analytics` no vienen del sistema operacional sino de documentos PDF
+procesados automáticamente. En esas filas, **`airline` y `hotel_name` son siempre `NULL`**, porque el
+documento no identifica el vuelo ni el hotel contratado.
+
+Esto tiene una consecuencia práctica: cualquier análisis por aerolínea o por hotel deja afuera esas
+reservas. No es un error de datos ni un dato faltante por descuido; es una limitación del origen. Al
+responder una pregunta sobre aerolíneas u hoteles conviene aclararlo.
+
+Todo el resto de los campos de esas reservas, incluidos los montos y los campos derivados, se calcula
+con exactamente la misma lógica que para las reservas del sistema operacional. En cualquier otro
+aspecto son indistinguibles.
