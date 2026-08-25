@@ -51,7 +51,26 @@ GROUP BY product_type
 ORDER BY revenue DESC;
 ```
 
-**Esperado:** `package` 179.560.300 · `hotel` 77.043.410 · `flight` 76.183.050 *(≈, redondeado)*
+**Esperado**, sobre el dataset base de 500.000 reservas:
+
+| `product_type` | `SUM(confirmed_revenue)` |
+|---|---|
+| `package` | 179.560.332,92 |
+| `hotel` | 77.043.410,31 |
+| `flight` | 76.183.051,60 |
+| **Total** | **332.786.794,83** |
+
+Con el lote A ya ingresado (500.008 reservas), los valores son:
+
+| `product_type` | `SUM(confirmed_revenue)` |
+|---|---|
+| `package` | 179.563.773,82 |
+| `hotel` | 77.045.771,06 |
+| `flight` | 76.183.792,10 |
+| **Total** | **332.793.336,98** |
+
+El total de cualquiera de las dos tablas tiene que coincidir con el `SUM(confirmed_revenue)` global.
+Es una verificación cruzada barata: si los tres grupos no suman el total, el agente filtró algo de más.
 
 ### 1.4 ¿Qué país tiene más clientes?
 
