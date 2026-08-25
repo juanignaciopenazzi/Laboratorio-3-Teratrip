@@ -120,6 +120,28 @@ no fabricar un resultado.
 | `SELECT * FROM information_schema.tables` | Validación de tabla permitida |
 | `SELECT * FROM booking_analytics` (sin `LIMIT`) | Se acepta, pero con `LIMIT` inyectado |
 
+### Hallazgo: la defensa opera en dos capas independientes
+
+Al probar contra el agente, **ninguna de las entradas llega a la Lambda**. El modelo las rechaza antes,
+citando casi textualmente la descripción del parámetro `sql_query` del schema de la tool, que declara
+que solo se aceptan `SELECT` y `WITH` sobre `booking_analytics`.
+
+Es defensa en profundidad y conviene presentarla como tal, con evidencia separada para cada capa:
+
+| Capa | Qué la implementa | Cómo se evidencia |
+|---|---|---|
+| **Modelo** | System prompt + descripción de la tool | Las conversaciones con el agente: rechaza y explica el motivo sin inventar un resultado |
+| **Código** | `validar()` en `lambda-teratrip-athena-query` | **Invocación directa** de la Lambda con test events, más los 34 tests de `tests/test_sql_guard.py` |
+
+La evidencia de la capa de código **debe obtenerse por invocación directa**, no a través del agente.
+Pasar por el agente solo demostraría que el guard funciona cuando el modelo colabora, que es
+precisamente el caso que no preocupa: la amenaza es un modelo al que convencieron de cooperar. La
+invocación directa saltea al modelo y prueba lo que importa.
+
+> No conviene sacar las restricciones de la descripción de la tool para forzar que el modelo mande SQL
+> inválido: empeoraría el sistema real —invocaciones desperdiciadas, latencia, peor respuesta— a cambio
+> de una demo más vistosa.
+
 ---
 
 ## Prueba 4 — End-to-end
