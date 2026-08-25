@@ -5,9 +5,10 @@ Laboratorio 3 - TeraTrip
 Produce el PDF que dispara el pipeline de ingesta. NO se usa ninguno de los 5 PDFs
 de ejemplo: la consigna pide un documento propio.
 
-Genera dos archivos:
-    teratrip_reservas_demo.pdf     -> el documento de la demo
-    teratrip_reservas_demo_v2.pdf  -> mismos booking_id, para la prueba de idempotencia
+Genera tres archivos:
+    teratrip_reservas_demo.pdf      -> lote A, usado durante el desarrollo
+    teratrip_reservas_demo_v2.pdf   -> lote A con otro eTag, para probar idempotencia
+    teratrip_reservas_walkthrough.pdf -> lote B, reservado para la demo en vivo
 
 Uso:
     pip install reportlab
@@ -64,7 +65,7 @@ HEADERS = [
 #
 # booking_id en serie B9000xx: el dataset base llega hasta B500000, no colisionan.
 
-ROWS = [
+ROWS_LOTE_A = [
     # id        fecha         cliente     nombre              pais         destino             producto   estado       total    pagado   pago_estado  metodo
     ["B900001", "2026-08-25", "C000001", "Carlos Rodriguez", "Italy",     "Madrid",           "package", "confirmed", "1850.00", "1850.00", "approved", "credit_card"],
     ["B900002", "2026-08-25", "C003923", "Diego Gomez",      "Brazil",    "Salvador de Bahia", "flight",  "confirmed",  "740.50",  "740.50", "approved", "debit_card"],
@@ -76,12 +77,31 @@ ROWS = [
     ["B900008", "2026-08-28", "C900004", "Bruno Salgado",    "Brazil",    "Florianopolis",    "hotel",   "confirmed",  "820.00",  "820.00", "approved", "cash"],
 ]
 
+# Lote B -- reservado para la Prueba 4 del walkthrough.
+#
+# Existe porque el lote A ya se ingesto durante el desarrollo: su destino ancla
+# (Salvador de Bahia) quedo en 1 y el "antes = 0" dejo de ser reproducible. Una
+# demo end-to-end necesita un ancla virgen.
+#
+# "Puerto Madryn" no figura entre los destinos del dataset. Es la fila que
+# sostiene la Prueba 4: antes de la ingesta el agente responde 0, despues 1.
+# booking_id en serie B91xxxx para no colisionar ni con el dataset base
+# (llega a B500000) ni con el lote A (B9000xx).
+ROWS_LOTE_B = [
+    ["B910001", "2026-08-29", "C007777", "Tomas Flores",   "Peru",      "Puerto Madryn", "package", "confirmed", "2140.00", "2140.00", "approved", "credit_card"],
+    ["B910002", "2026-08-29", "C021000", "Agustin Gomez",  "Colombia",  "Lima",          "flight",  "confirmed",  "615.30",  "615.30", "approved", "debit_card"],
+    ["B910003", "2026-08-30", "C038450", "Sofia Sanchez",  "Colombia",  "Orlando",       "hotel",   "confirmed", "1275.00",  "800.00", "approved", "bank_transfer"],
+    ["B910004", "2026-08-30", "C910001", "Lucas Ferreyra", "Argentina", "Rome",          "package", "cancelled", "1980.50",    "0.00", "rejected", "credit_card"],
+    ["B910005", "2026-08-31", "C910002", "Julieta Ponce",  "Uruguay",   "Salta",         "flight",  "confirmed",  "395.00",  "395.00", "approved", "wallet"],
+    ["B910006", "2026-08-31", "C910003", "Martin Aguirre", "Chile",     "Aruba",         "hotel",   "confirmed",  "890.75",  "890.75", "approved", "cash"],
+]
+
 HEADER_FONT, HEADER_SIZE = "Helvetica-Bold", 7.5
 BODY_FONT, BODY_SIZE = "Helvetica", 7.5
 CELL_PAD = 4  # padding izq + der que aplica el TableStyle
 
 
-def column_widths():
+def column_widths(rows):
     """Ancho por columna = el contenido mas ancho de esa columna + padding.
 
     Calculado con las metricas reales de la fuente, no a ojo: es lo que garantiza
@@ -90,7 +110,7 @@ def column_widths():
     widths = []
     for i, header in enumerate(HEADERS):
         w = stringWidth(header, HEADER_FONT, HEADER_SIZE)
-        for row in ROWS:
+        for row in rows:
             w = max(w, stringWidth(row[i], BODY_FONT, BODY_SIZE))
         widths.append(w + CELL_PAD * 2 + 3)
     return widths
@@ -109,8 +129,8 @@ def assert_headers_fit(widths):
             )
 
 
-def build(path, subtitulo):
-    widths = column_widths()
+def build(path, subtitulo, rows):
+    widths = column_widths(rows)
     assert_headers_fit(widths)
 
     page_w = landscape(A4)[0]
@@ -134,7 +154,7 @@ def build(path, subtitulo):
     foot = ParagraphStyle("foot", fontName="Helvetica", fontSize=7,
                           textColor=colors.HexColor("#66556f"))
 
-    table = Table([HEADERS] + ROWS, colWidths=widths, repeatRows=1)
+    table = Table([HEADERS] + rows, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), PURPLE_DARK),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -161,12 +181,15 @@ def build(path, subtitulo):
             "Documento generado para el Laboratorio Final. Datos ficticios. "
             "Una fila por reserva; los importes estan expresados en USD.", foot),
     ])
-    print(f"OK  {path.name}  ({len(ROWS)} reservas, {len(HEADERS)} columnas)")
+    print(f"OK  {path.name}  ({len(rows)} reservas, {len(HEADERS)} columnas)")
 
 
 if __name__ == "__main__":
     build(OUT_DIR / "teratrip_reservas_demo.pdf",
-          "Lote de alta - 8 reservas")
-    # Mismos booking_id: subirlo de nuevo no debe cambiar el conteo (idempotencia).
+          "Lote de alta - 8 reservas", ROWS_LOTE_A)
+    # Mismos booking_id, distinto eTag: subirlo no debe cambiar el conteo.
     build(OUT_DIR / "teratrip_reservas_demo_v2.pdf",
-          "Lote de alta - 8 reservas (reenvio del mismo lote)")
+          "Lote de alta - 8 reservas (reenvio del mismo lote)", ROWS_LOTE_A)
+    # Lote B: NO ingestarlo antes del walkthrough. Su ancla debe estar en 0.
+    build(OUT_DIR / "teratrip_reservas_walkthrough.pdf",
+          "Lote de alta - 6 reservas", ROWS_LOTE_B)

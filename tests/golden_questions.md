@@ -176,3 +176,57 @@ Volver a subir el mismo documento (`teratrip_reservas_demo_v2.pdf`, mismos `book
 `eTag`). `COUNT(*)` debe seguir en 500.008 y el anti-join del Glue Job debe
 loguear que descartó los 8 `booking_id`. Es lo que respalda el criterio de aprobación *"los registros se
 incorporan sin duplicar reservas existentes"*.
+
+---
+
+## Prueba 4 en el walkthrough — lote B
+
+El lote A (`teratrip_reservas_demo.pdf`) ya se ingestó durante el desarrollo, así que su ancla
+`Salvador de Bahia` quedó en 1 y el "antes = 0" dejó de ser reproducible. Para la demo en vivo se usa
+**`teratrip_reservas_walkthrough.pdf`**, con ancla **`Puerto Madryn`**.
+
+> **No subir este documento hasta el walkthrough.** Si se ingesta antes, hay que generar un cuarto.
+
+### Guion de la demo
+
+```sql
+-- (a) antes: preguntarle al agente "¿cuántas reservas hay para Puerto Madryn?"
+SELECT COUNT(*) FROM teratrip_db.booking_analytics WHERE destination_city = 'Puerto Madryn';
+-- esperado: 0
+
+-- (b) subir teratrip_reservas_walkthrough.pdf a incoming-documents/
+-- (c) esperar la Step Function
+
+-- (d) volver a preguntarle al agente lo mismo
+-- esperado: 1
+```
+
+El agente tiene que **volver a consultar**, no responder con la cifra del paso (a). Si contesta de
+memoria, revisar que el Harness siga con Memory desactivada y que las instrucciones sean las de
+`src/agent/system_prompt.md`.
+
+### Valores derivados esperados
+
+| booking_id | destino | status | total | confirmed_revenue | approved_paid | payment_gap | coverage % | last_payment_method |
+|---|---|---|---|---|---|---|---|---|
+| B910001 | Puerto Madryn | confirmed | 2140.00 | 2140.00 | 2140.00 | 0.00 | 100.00 | credit_card |
+| B910002 | Lima | confirmed | 615.30 | 615.30 | 615.30 | 0.00 | 100.00 | debit_card |
+| B910003 | Orlando | confirmed | 1275.00 | 1275.00 | 800.00 | 475.00 | 62.75 | bank_transfer |
+| B910004 | Rome | cancelled | 1980.50 | 0.00 | 0.00 | 1980.50 | 0.00 | **NULL** |
+| B910005 | Salta | confirmed | 395.00 | 395.00 | 395.00 | 0.00 | 100.00 | wallet |
+| B910006 | Aruba | confirmed | 890.75 | 890.75 | 890.75 | 0.00 | 100.00 | cash |
+| **Total** | | | **7296.55** | **5316.05** | **4841.05** | **2455.50** | | |
+
+### Efecto en los agregados
+
+| Métrica | Antes | Después |
+|---|---|---|
+| `COUNT(*)` | 500.008 | **500.014** |
+| `destination_city = 'Puerto Madryn'` | 0 | **1** |
+| `status = 'confirmed'` | 375.036 | 375.041 |
+| `status = 'cancelled'` | 75.001 | 75.002 |
+| `SUM(total_amount)` | 443.707.689,72 | 443.714.986,27 |
+| `SUM(confirmed_revenue)` | 332.793.336,98 | 332.798.653,03 |
+
+La tasa de cancelación pasa de 15,0000 % a 75.002 / 500.014 = **15,0000 %**: no se mueve de forma
+perceptible, así que no sirve como evidencia del antes/después. El conteo del ancla sí.
