@@ -89,6 +89,38 @@ cambian a medida que se ingresan reservas nuevas. Para conocerlos hay que consul
 `SELECT DISTINCT destination_city FROM booking_analytics`. Estos valores sí conservan mayúsculas
 iniciales, por ejemplo `Cancun`, `Buenos Aires`, `Argentina`.
 
+### Los valores de texto se guardan SIN tildes ni diacríticos
+
+Esto es la causa más frecuente de que una consulta devuelva 0 filas siendo correcta. Las ciudades y los
+países están almacenados sin acentos, aunque su ortografía correcta en español los lleve:
+
+| Escrito así en la base | **No** buscar como |
+|---|---|
+| `Cancun` | `Cancún` |
+| `Bogota` | `Bogotá` |
+| `Sao Paulo` | `São Paulo` |
+| `Cordoba` | `Córdoba` |
+| `Asuncion` | `Asunción` |
+| `Valparaiso` | `Valparaíso` |
+| `Iguazu` | `Iguazú` |
+
+Al filtrar por un valor de texto hay que usar la forma **sin diacríticos**, aunque el usuario haya
+escrito la palabra con tilde en su pregunta. `WHERE destination_city = 'Cancún'` devuelve cero filas;
+`WHERE destination_city = 'Cancun'` devuelve las correctas.
+
+Una alternativa robusta cuando hay dudas sobre la ortografía exacta es filtrar de forma aproximada:
+
+```sql
+SELECT COUNT(*) FROM booking_analytics WHERE destination_city LIKE 'Canc%';
+```
+
+Y si un filtro por un valor de texto devuelve **0 filas**, no hay que concluir que no existen datos:
+primero conviene verificar cómo está escrito realmente el valor.
+
+```sql
+SELECT DISTINCT destination_city FROM booking_analytics ORDER BY destination_city;
+```
+
 ## Limitación conocida: reservas ingresadas por documento
 
 Algunas reservas de `booking_analytics` no vienen del sistema operacional sino de documentos PDF
