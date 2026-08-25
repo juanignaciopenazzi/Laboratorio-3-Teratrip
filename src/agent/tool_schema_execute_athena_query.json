@@ -1,0 +1,14 @@
+{
+  "name": "execute_athena_query",
+  "description": "Ejecuta una consulta SQL de solo lectura contra la tabla booking_analytics de TeraTrip en Amazon Athena y devuelve las filas resultantes. Es la unica forma de obtener datos reales: cualquier cifra sobre reservas, clientes, ingresos, destinos o pagos debe salir de esta herramienta y nunca de una estimacion. Acepta unicamente sentencias SELECT o WITH sobre la tabla booking_analytics; el resto se rechaza y devuelve un error explicando el motivo.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sql_query": {
+        "type": "string",
+        "description": "La consulta SQL a ejecutar, en dialecto Trino (Amazon Athena). Debe ser una unica sentencia que empiece con SELECT o WITH y referenciar solo la tabla booking_analytics (o teratrip_db.booking_analytics). No incluir punto y coma intermedios ni mas de una sentencia. Los nombres de columna deben ser exactamente los del diccionario de datos. Ejemplo: SELECT destination_city, SUM(confirmed_revenue) AS revenue FROM booking_analytics GROUP BY destination_city ORDER BY revenue DESC LIMIT 5"
+      }
+    },
+    "required": ["sql_query"]
+  }
+}
