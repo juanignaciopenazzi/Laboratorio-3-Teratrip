@@ -192,24 +192,6 @@ Prefijos del bucket: `raw/`, `curated/`, `curated/_backup/`, `incoming-documents
 
 ---
 
-## Notas de operación
-
-- **`teratrip_reservas_walkthrough.pdf` está reservado para la demo end-to-end.** Su ancla
-  `Puerto Madryn` no existe en el dataset; una vez ingestado deja de servir para demostrar el
-  antes/después.
-- El Glue Job de merge está limitado a **una corrida concurrente**: es un read-modify-write sobre un
-  archivo único, y dos merges simultáneos perderían registros sin error visible.
-- La **Memory del Harness está desactivada** a propósito. Servía cifras de sesiones anteriores y llegó a
-  preferirlas por encima de una consulta en vivo.
-- **Nunca usar `sys.exit()` en un Glue Job**: el runner lo reporta como `SYSTEM_EXIT_ERROR` aunque el
-  código de salida sea 0, y la Step Function lo ve como fallo.
-- No hace falta volver a correr el Crawler después de un merge: el esquema no cambia y la tabla del
-  catálogo apunta al prefijo, no al contenido.
-- Las métricas del agente están en el namespace **`bedrock-agentcore`**, no en `AWS/Bedrock`, con
-  nombres de la convención OpenTelemetry (`gen_ai.client.token.usage`).
-
----
-
 <div align="center">
 
 **Juan Ignacio Penazzi**
