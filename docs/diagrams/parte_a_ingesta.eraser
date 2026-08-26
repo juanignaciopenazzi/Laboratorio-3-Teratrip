@@ -1,0 +1,55 @@
+// =============================================================================
+// TeraTrip - Laboratorio 3
+// Parte A: Ingesta inteligente de reservas desde documentos
+//
+// Pegar en https://app.eraser.io  ->  nuevo Diagram-as-code
+// Exportar como SVG a docs/diagrams/parte_a_ingesta.svg
+// =============================================================================
+
+title Parte A - Ingesta inteligente de reservas
+
+direction right
+
+Analista [icon: user]
+
+Data Lake S3 [icon: aws-s3, color: green] {
+  incoming-documents [icon: file]
+  textract-raw [icon: file]
+  incoming-data [icon: file]
+  curated booking_analytics [icon: database]
+}
+
+EventBridge [icon: aws-eventbridge, color: purple]
+
+sfn-teratrip-ingest [icon: aws-step-functions, color: purple] {
+  1 Extraer tabla [icon: aws-lambda]
+  2 Normalizar [icon: aws-lambda]
+  3 Hay registros [icon: git-branch]
+  4 Merge curated [icon: aws-glue]
+}
+
+Amazon Textract [icon: aws-textract, color: orange]
+Glue Data Catalog [icon: aws-glue]
+Amazon Athena [icon: aws-athena, color: blue]
+
+// --- Disparo automatico ---
+Analista > incoming-documents: sube el PDF
+incoming-documents > EventBridge: Object Created
+EventBridge > 1 Extraer tabla: StartExecution
+
+// --- Extraccion ---
+1 Extraer tabla <> Amazon Textract: AnalyzeDocument TABLES
+1 Extraer tabla > textract-raw: JSON crudo (debug)
+1 Extraer tabla > 2 Normalizar: grilla + run_id del eTag
+
+// --- Normalizacion ---
+2 Normalizar > incoming-data: records.jsonl
+2 Normalizar > 3 Hay registros
+
+// --- Merge ---
+3 Hay registros > 4 Merge curated: record_count > 0
+4 Merge curated > curated booking_analytics: anti-join por booking_id
+
+// --- Consulta ---
+curated booking_analytics > Glue Data Catalog
+Glue Data Catalog > Amazon Athena: teratrip_db.booking_analytics

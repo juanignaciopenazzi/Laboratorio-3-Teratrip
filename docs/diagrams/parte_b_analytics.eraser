@@ -1,0 +1,48 @@
+// =============================================================================
+// TeraTrip - Laboratorio 3
+// Parte B: Analytics conversacional sobre la tabla sabana
+//
+// Pegar en https://app.eraser.io  ->  nuevo Diagram-as-code
+// Exportar como SVG a docs/diagrams/parte_b_analytics.svg
+// =============================================================================
+
+title Parte B - Analytics conversacional
+
+direction right
+
+Usuario [icon: user]
+
+teratrip_analytics_agent [icon: aws-bedrock, color: purple]
+
+teratrip-analytics-gateway [icon: aws-api-gateway, color: purple] {
+  teratrip-kb-target [icon: book-open]
+  teratrip-athena-target [icon: tool]
+}
+
+teratrip-business-kb [icon: aws-bedrock, color: blue] {
+  Diccionario de datos [icon: file-text]
+  Reglas de negocio [icon: file-text]
+  Definicion de metricas [icon: file-text]
+  Contexto del dataset [icon: file-text]
+}
+
+lambda-teratrip-athena-query [icon: aws-lambda, color: orange] {
+  Validacion en 6 capas [icon: shield]
+}
+
+Amazon Athena [icon: aws-athena, color: blue]
+curated booking_analytics [icon: database, color: green]
+
+// --- Conversacion ---
+Usuario > teratrip_analytics_agent: pregunta en lenguaje natural
+teratrip_analytics_agent > teratrip-analytics-gateway: IAM / SigV4
+
+// --- Contexto de negocio ---
+teratrip-kb-target > teratrip-business-kb: que significa la metrica
+
+// --- Datos ---
+teratrip-athena-target > lambda-teratrip-athena-query: execute_athena_query(sql_query)
+Validacion en 6 capas > Amazon Athena: solo SELECT sobre booking_analytics
+Amazon Athena > curated booking_analytics
+Amazon Athena > teratrip_analytics_agent: filas tipadas + QueryExecutionId
+teratrip_analytics_agent > Usuario: respuesta citando la cifra
