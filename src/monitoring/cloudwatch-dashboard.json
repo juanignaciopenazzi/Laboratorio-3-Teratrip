@@ -1,0 +1,532 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 2,
+      "properties": {
+        "markdown": "# TeraTrip — Laboratorio 3\n**Parte A:** S3 → EventBridge → Step Functions → Textract → normalización → Glue merge → Athena  ·  **Parte B:** Harness → Gateway → (Knowledge Base | Lambda Athena) → Athena\n\nEl pulso del pipeline es *Ejecuciones de la Step Function*. Cuando algo falla, el widget de **Errores** de abajo agrega los logs de las cuatro funciones en un solo lugar."
+      }
+    },
+    {
+      "type": "alarm",
+      "x": 0,
+      "y": 2,
+      "width": 24,
+      "height": 3,
+      "properties": {
+        "title": "Estado del laboratorio",
+        "alarms": [
+          "arn:aws:cloudwatch:us-east-1:955030484229:alarm:alarm-teratrip-sfn-failed",
+          "arn:aws:cloudwatch:us-east-1:955030484229:alarm:alarm-teratrip-lambda-errors"
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 5,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "Ingesta — Ejecuciones de la Step Function",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/States",
+            "ExecutionsStarted",
+            "StateMachineArn",
+            "arn:aws:states:us-east-1:955030484229:stateMachine:sfn-teratrip-ingest",
+            {
+              "label": "Iniciadas"
+            }
+          ],
+          [
+            "AWS/States",
+            "ExecutionsSucceeded",
+            "StateMachineArn",
+            "arn:aws:states:us-east-1:955030484229:stateMachine:sfn-teratrip-ingest",
+            {
+              "label": "Exitosas",
+              "color": "#2ca02c"
+            }
+          ],
+          [
+            "AWS/States",
+            "ExecutionsFailed",
+            "StateMachineArn",
+            "arn:aws:states:us-east-1:955030484229:stateMachine:sfn-teratrip-ingest",
+            {
+              "label": "Fallidas",
+              "color": "#d62728"
+            }
+          ],
+          [
+            "AWS/States",
+            "ExecutionsTimedOut",
+            "StateMachineArn",
+            "arn:aws:states:us-east-1:955030484229:stateMachine:sfn-teratrip-ingest",
+            {
+              "label": "Timeout",
+              "color": "#ff7f0e"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 5,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "Ingesta — Duración de la ejecución completa",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/States",
+            "ExecutionTime",
+            "StateMachineArn",
+            "arn:aws:states:us-east-1:955030484229:stateMachine:sfn-teratrip-ingest",
+            {
+              "stat": "Average",
+              "label": "Promedio"
+            }
+          ],
+          [
+            "AWS/States",
+            "ExecutionTime",
+            "StateMachineArn",
+            "arn:aws:states:us-east-1:955030484229:stateMachine:sfn-teratrip-ingest",
+            {
+              "stat": "Maximum",
+              "label": "Máximo"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "ms"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 11,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Lambdas — Invocaciones",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/Lambda",
+            "Invocations",
+            "FunctionName",
+            "lambda-teratrip-textract-extract",
+            {
+              "label": "textract-extract"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Invocations",
+            "FunctionName",
+            "lambda-teratrip-normalize",
+            {
+              "label": "normalize"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Invocations",
+            "FunctionName",
+            "lambda-teratrip-athena-query",
+            {
+              "label": "athena-query"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 11,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Lambdas — Errores y throttles",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/Lambda",
+            "Errors",
+            "FunctionName",
+            "lambda-teratrip-textract-extract",
+            {
+              "label": "err textract"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Errors",
+            "FunctionName",
+            "lambda-teratrip-normalize",
+            {
+              "label": "err normalize"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Errors",
+            "FunctionName",
+            "lambda-teratrip-athena-query",
+            {
+              "label": "err athena"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Throttles",
+            "FunctionName",
+            "lambda-teratrip-textract-extract",
+            {
+              "label": "throttle textract"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Throttles",
+            "FunctionName",
+            "lambda-teratrip-athena-query",
+            {
+              "label": "throttle athena"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 11,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Lambdas — Duración (p95)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stat": "p95",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/Lambda",
+            "Duration",
+            "FunctionName",
+            "lambda-teratrip-textract-extract",
+            {
+              "label": "textract-extract"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Duration",
+            "FunctionName",
+            "lambda-teratrip-normalize",
+            {
+              "label": "normalize"
+            }
+          ],
+          [
+            "AWS/Lambda",
+            "Duration",
+            "FunctionName",
+            "lambda-teratrip-athena-query",
+            {
+              "label": "athena-query"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "ms"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 17,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Textract — Requests y errores",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/Textract",
+            "SuccessfulRequestCount",
+            {
+              "label": "Exitosos",
+              "color": "#2ca02c"
+            }
+          ],
+          [
+            "AWS/Textract",
+            "ThrottledCount",
+            {
+              "label": "Throttled",
+              "color": "#ff7f0e"
+            }
+          ],
+          [
+            "AWS/Textract",
+            "ServerErrorCount",
+            {
+              "label": "Error del servicio",
+              "color": "#d62728"
+            }
+          ],
+          [
+            "AWS/Textract",
+            "UserErrorCount",
+            {
+              "label": "Error del cliente"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 17,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Athena — Bytes escaneados (wg-teratrip)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/Athena",
+            "ProcessedBytes",
+            "WorkGroup",
+            "wg-teratrip",
+            "QueryState",
+            "SUCCEEDED",
+            "QueryType",
+            "DML",
+            {
+              "stat": "Sum",
+              "label": "Bytes escaneados"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "bytes"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 17,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Athena — Tiempo de ejecución (wg-teratrip)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/Athena",
+            "EngineExecutionTime",
+            "WorkGroup",
+            "wg-teratrip",
+            "QueryState",
+            "SUCCEEDED",
+            "QueryType",
+            "DML",
+            {
+              "stat": "Average",
+              "label": "Motor (prom)"
+            }
+          ],
+          [
+            "AWS/Athena",
+            "QueryQueueTime",
+            "WorkGroup",
+            "wg-teratrip",
+            "QueryState",
+            "SUCCEEDED",
+            "QueryType",
+            "DML",
+            {
+              "stat": "Average",
+              "label": "Cola (prom)"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "ms"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 23,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "Agente - Consumo de tokens (Claude Haiku 4.5)",
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": true,
+        "period": 300,
+        "metrics": [
+          [
+            "bedrock-agentcore",
+            "gen_ai.client.token.usage",
+            "server.address",
+            "bedrock-runtime.us-east-1.amazonaws.com",
+            "gen_ai.operation.name",
+            "chat",
+            "server.port",
+            "443",
+            "gen_ai.request.model",
+            "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "gen_ai.token.type",
+            "input",
+            "gen_ai.system",
+            "aws.bedrock",
+            {
+              "stat": "Sum",
+              "label": "Entrada",
+              "color": "#1f77b4"
+            }
+          ],
+          [
+            "bedrock-agentcore",
+            "gen_ai.client.token.usage",
+            "server.address",
+            "bedrock-runtime.us-east-1.amazonaws.com",
+            "gen_ai.operation.name",
+            "chat",
+            "server.port",
+            "443",
+            "gen_ai.request.model",
+            "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "gen_ai.token.type",
+            "output",
+            "gen_ai.system",
+            "aws.bedrock",
+            {
+              "stat": "Sum",
+              "label": "Salida",
+              "color": "#2ca02c"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "tokens"
+          }
+        }
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 29,
+      "width": 24,
+      "height": 8,
+      "properties": {
+        "title": "Errores — las cuatro Lambdas y el Glue Job en un solo lugar",
+        "region": "us-east-1",
+        "view": "table",
+        "query": "SOURCE '/aws/lambda/lambda-teratrip-textract-extract' | SOURCE '/aws/lambda/lambda-teratrip-normalize' | SOURCE '/aws/lambda/lambda-teratrip-athena-query' | SOURCE '/aws-glue/jobs/error'\n| fields @timestamp, @log, @message\n| filter @message like /(?i)(error|exception|traceback|rechazad|descartad|fallo)/\n| sort @timestamp desc\n| limit 50"
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 37,
+      "width": 12,
+      "height": 8,
+      "properties": {
+        "title": "Merge — qué incorporó y qué descartó cada corrida",
+        "region": "us-east-1",
+        "view": "table",
+        "query": "SOURCE '/aws-glue/jobs/output'\n| fields @timestamp, @message\n| filter @message like /(Tabla sabana|anti-join|A incorporar|Registros recibidos|Backup|Todos los booking_id)/\n| sort @timestamp desc\n| limit 60"
+      }
+    },
+    {
+      "type": "log",
+      "x": 12,
+      "y": 37,
+      "width": 12,
+      "height": 8,
+      "properties": {
+        "title": "Agente — SQL generado y consultas rechazadas",
+        "region": "us-east-1",
+        "view": "table",
+        "query": "SOURCE '/aws/lambda/lambda-teratrip-athena-query'\n| fields @timestamp, @message\n| filter @message like /(SQL ejecutado|RECHAZADO|QueryExecutionId)/\n| sort @timestamp desc\n| limit 60"
+      }
+    }
+  ]
+}
