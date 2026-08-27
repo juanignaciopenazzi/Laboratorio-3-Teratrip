@@ -160,6 +160,7 @@ Laboratorio 3/
 │   ├── iam/ ·························· policies inline escritas a mano
 │   ├── queries/ ······················ validaciones SQL para Athena
 │   ├── monitoring/ ··················· dashboard de CloudWatch y Logs Insights
+│   ├── s3/ ··························· reglas de ciclo de vida del bucket
 │   └── pdf/ ·························· generador y documentos de prueba
 │       └── ejemplo/ ················· los 5 PDF de referencia de la consigna
 │

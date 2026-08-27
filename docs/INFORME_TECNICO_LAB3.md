@@ -396,9 +396,68 @@ pipeline de ingesta cuando el problema era una frase mal redactada.
 | 4 | End-to-end | Pendiente de ejecución con `teratrip_reservas_walkthrough.pdf` |
 | 5 | Idempotencia *(extra)* | ✅ Reingesta del mismo documento y de una variante con los mismos `booking_id`: el conteo no cambia |
 
+## 5. Ciclo de vida de los objetos en S3
+
+Cada documento procesado deja rastro en cinco prefijos, y cuatro de ellos son subproductos: existen para
+diagnosticar una corrida reciente o para poder volver atrás, no para conservarse. Sin reglas de ciclo de
+vida el bucket acumula indefinidamente, y el caso más notorio es `curated/_backup/`, donde **cada merge
+deja una copia completa de la tabla sábana**.
+
+| Prefijo | Qué guarda | Expira a | Fundamento |
+|---|---|---|---|
+| `incoming-documents/` | los PDF subidos | 30 días | Es el insumo, no el dato. El registro que produjo ya vive en la tabla, y el documento está versionado en el repositorio. |
+| `incoming-data/` | JSON Lines normalizado y `_rejected.json` | 14 días | Intermedio. Su valor es diagnosticar una corrida reciente. |
+| `textract-raw/` | JSON crudo de Textract | 14 días | Ídem: sirve para distinguir si falló el OCR o la normalización, y eso se hace en caliente. |
+| `curated/_backup/` | copias previas a cada merge | 7 días | Recuperar una demo rota es un escenario de horas, no de meses. |
+| `athena-results/` | resultados de consultas | 7 días | Regenerables: basta con volver a correr la consulta. |
+
+`curated/booking_analytics/` **no lleva regla de expiración**: es el dato, no un subproducto. Cada regla
+se acota por prefijo con la barra final incluida; una regla sobre el bucket entero, o un prefijo mal
+escrito como `curated` en lugar de `curated/_backup/`, borraría la tabla sábana, y el fallo aparecería
+recién cuando el merge no encontrara el Parquet.
+
+Se agrega además una regla de alcance global para **abortar cargas multiparte incompletas a los 7 días**.
+No toca ningún objeto existente: limpia fragmentos de subidas que fallaron y siguen facturando sin
+aparecer en el listado del bucket.
+
+### Por qué se descartó archivar en lugar de eliminar
+
+Se evaluó transicionar estos objetos a clases frías —Standard-IA, Glacier, o Intelligent-Tiering con
+Archive configuration— en vez de eliminarlos. **Para estos datos, archivar cuesta más que borrar.** Dos
+mecánicas de facturación lo determinan:
+
+**Duración mínima facturable.** Standard-IA factura 30 días, Glacier 90 y Deep Archive 180, aunque el
+objeto se elimine antes. Mover un backup a Glacier y expirarlo a los 7 días implica pagar 90 días de
+Glacier en lugar de 7 de Standard. Las clases frías asumen retención de meses; la de este pipeline se
+mide en días.
+
+**Tamaño mínimo facturable.** Standard-IA y Glacier Instant Retrieval facturan un piso de **128 KB por
+objeto**. Un PDF de 4 KB pasa a costar como si pesara 128 KB, unas 30 veces más. Cuatro de los cinco
+prefijos contienen archivos de pocos kilobytes.
+
+Sobre **Intelligent-Tiering** en particular hay dos impedimentos adicionales. El primero es terminante:
+los objetos de menos de 128 KB **nunca descienden de tier**, así que la mayoría de estos archivos
+quedaría en el tier frecuente pagando lo mismo que en Standard, más la cuota de monitoreo. El segundo es
+funcional: los tiers *Archive Access* y *Deep Archive Access* requieren un restore asincrónico de horas,
+y `textract-raw/` existe precisamente para consultarse rápido cuando algo falla.
+
+Intelligent-Tiering resuelve además un problema que este pipeline no tiene: patrones de acceso
+impredecibles. Acá el patrón es conocido — estos objetos se leen una vez poco después de crearse, o no
+se leen nunca. Cuando el patrón se conoce, pagar para que S3 lo descubra es costo sin contrapartida.
+
+**Conviene ser honesto sobre la magnitud:** a esta escala el ahorro de las reglas de expiración es de
+centavos. La razón real para expirar no es el costo sino la **higiene operativa** — que `curated/_backup/`
+no acumule decenas de copias casi idénticas de la misma tabla y que el bucket siga siendo legible.
+
+La decisión se daría vuelta ante un **requisito de retención**: si el PDF original tuviera que
+conservarse como comprobante auditable de qué se ingresó y cuándo, `incoming-documents/` no se expiraría
+sino que se transicionaría a Glacier Deep Archive con retención de años. Ahí el criterio lo fija el
+cumplimiento, no el costo, y con horizontes de años los mínimos de 180 días dejan de ser un problema.
+Los otros cuatro prefijos no admiten ese argumento: son subproductos regenerables.
+
 ---
 
-## 5. Observación sobre mínimo privilegio
+## 6. Observación sobre mínimo privilegio
 
 Las policies escritas a mano para este laboratorio —Lambdas, Glue, Step Functions, EventBridge— están
 acotadas por recurso y por prefijo, sin `Resource: "*"` ni acciones con comodín. La única excepción es

@@ -1,0 +1,64 @@
+{
+  "Rules": [
+    {
+      "ID": "expirar-documentos-procesados",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "incoming-documents/"
+      },
+      "Expiration": {
+        "Days": 30
+      }
+    },
+    {
+      "ID": "expirar-registros-normalizados",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "incoming-data/"
+      },
+      "Expiration": {
+        "Days": 14
+      }
+    },
+    {
+      "ID": "expirar-json-crudo-de-textract",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "textract-raw/"
+      },
+      "Expiration": {
+        "Days": 14
+      }
+    },
+    {
+      "ID": "expirar-backups-de-la-tabla-sabana",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "curated/_backup/"
+      },
+      "Expiration": {
+        "Days": 7
+      }
+    },
+    {
+      "ID": "expirar-resultados-de-athena",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "athena-results/"
+      },
+      "Expiration": {
+        "Days": 7
+      }
+    },
+    {
+      "ID": "limpiar-multipart-incompletos",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": ""
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    }
+  ]
+}
