@@ -169,7 +169,8 @@ SELECT booking_id, booking_date, destination_city, status, total_amount,
 FROM teratrip_db.booking_analytics
 WHERE booking_id LIKE 'B90%'
 ORDER BY booking_id;
--- airline y hotel_name deben venir NULL en los 8
+-- airline y hotel_name segun product_type: flight->solo airline,
+-- hotel->solo hotel_name, package->ambos
 ```
 
 ### Valores derivados esperados, fila por fila
@@ -196,6 +197,34 @@ método, el merge copió el campo a ciegas.
 
 `B900006` es además la única fila `pending` de las tres posibles combinaciones de `status`: verifica que
 `is_confirmed` e `is_cancelled` puedan ser ambos `false`.
+
+### Proveedor esperado por fila
+
+`airline` y `hotel_name` se incorporaron después de detectar que los registros ingresados por documento
+llegaban sin proveedor mientras sí traían `product_type`. El merge aplica la regla del dataset base:
+
+| booking_id | product_type | airline | hotel_name |
+|---|---|---|---|
+| B900001 | package | Latamundo Air | Gran Via Suites |
+| B900002 | flight | Rio Plata Airlines | **NULL** |
+| B900003 | hotel | **NULL** | Inti Valley Lodge |
+| B900004 | package | Patagonian Fly | Nahuel Lake Resort |
+| B900005 | hotel | **NULL** | Brava Beach Hotel |
+| B900006 | flight | Pacifico Air | **NULL** |
+| B900007 | package | Andes Air | Cataratas Garden Inn |
+| B900008 | hotel | **NULL** | Ilha Norte Suites |
+
+Verificación: ninguna fila puede tener los dos campos vacíos, y ninguna `package` puede tener uno solo.
+
+```sql
+SELECT booking_id, product_type, airline, hotel_name
+FROM teratrip_db.booking_analytics
+WHERE booking_id LIKE 'B9%'
+  AND (  (product_type = 'flight'  AND (airline IS NULL OR hotel_name IS NOT NULL))
+      OR (product_type = 'hotel'   AND (hotel_name IS NULL OR airline IS NOT NULL))
+      OR (product_type = 'package' AND (airline IS NULL OR hotel_name IS NULL)) );
+-- esperado: ninguna fila
+```
 
 ### Efecto en los agregados globales
 
@@ -271,3 +300,14 @@ memoria, revisar que el Harness siga con Memory desactivada y que las instruccio
 
 La tasa de cancelación pasa de 15,0000 % a 75.002 / 500.014 = **15,0000 %**: no se mueve de forma
 perceptible, así que no sirve como evidencia del antes/después. El conteo del ancla sí.
+
+### Proveedor esperado del lote B
+
+| booking_id | product_type | airline | hotel_name |
+|---|---|---|---|
+| B910001 | package | Patagonian Fly | Golfo Nuevo Lodge |
+| B910002 | flight | Andina Jet | **NULL** |
+| B910003 | hotel | **NULL** | Sunshine Bay Hotel |
+| B910004 | package | Nova Airlines | Trastevere Palace |
+| B910005 | flight | Altura Airlines | **NULL** |
+| B910006 | hotel | **NULL** | Palm Coast Resort |

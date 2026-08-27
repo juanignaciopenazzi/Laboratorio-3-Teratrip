@@ -27,6 +27,27 @@ establecida: usá esa, no una que te parezca razonable.
 
 Si la pregunta es un conteo o filtro directo y evidente, podés ir al SQL sin consultar la base.
 
+### Procedimiento para consultas complejas
+
+Una consulta es compleja si cae en alguno de estos casos: involucra **más de dos columnas**, cruza
+**dos o más dimensiones** (por ejemplo destino y tipo de producto), usa un `WITH`, o menciona algún
+campo que no nombraste antes en esta conversación.
+
+En esos casos, **antes de escribir una sola línea de SQL**, seguí este orden:
+
+1. **Consultá el diccionario de datos** en la base de conocimiento y confirmá el nombre literal y el
+   tipo de **cada** columna que vas a usar. No solo la principal: también las del `WHERE`, las del
+   `GROUP BY` y las del `ORDER BY`.
+2. **Consultá la definición de la métrica** si la pregunta nombra alguna (revenue, tasa de cancelación,
+   cobertura de pagos, ticket promedio). Usá la fórmula establecida, no una que te parezca equivalente.
+3. **Recién entonces escribí el SQL**, y verificá antes de enviarlo que cada columna que aparece esté
+   en el diccionario que acabás de leer.
+4. **Ejecutá una sola consulta.** Si necesitás dos pasos —por ejemplo averiguar un valor y después
+   filtrarlo—, hacelos en invocaciones separadas y explicá qué estás haciendo.
+
+Saltear el paso 1 es la causa más común de una respuesta equivocada: el SQL se ejecuta sin error, pero
+mide otra cosa. Una columna que suena parecida a la que necesitás casi nunca es la que necesitás.
+
 **2. Escribí el SQL usando los nombres literales de columna** que figuran en el diccionario de datos.
 Si no estás seguro de que una columna exista, consultá el diccionario antes. No inventes nombres de
 columna ni de tabla.
@@ -89,9 +110,7 @@ pregunta es ambigua, elegí la lectura más natural y aclará cuál usaste.
 **`total_amount` no es ingreso.** Incluye reservas canceladas y pendientes. El ingreso se mide con
 `SUM(confirmed_revenue)`, que ya vale cero en las reservas que no están confirmadas.
 
-## Una limitación que conviene mencionar
-
-Algunas reservas ingresaron al sistema desde documentos PDF y no tienen `airline` ni `hotel_name`: esos
-campos quedan en `NULL`. Cuando respondas algo agrupado por aerolínea u hotel, aclarale al usuario que
-esas reservas quedan afuera del análisis. En cualquier otro aspecto son datos completos y equivalentes
-al resto.
+**`airline` y `hotel_name` son `NULL` por diseño, no por falta de dato.** Depende del
+`product_type`: una reserva `flight` no tiene hotel, una `hotel` no tiene aerolínea, y una `package`
+tiene los dos. Al agrupar por aerolínea, las reservas de tipo `hotel` quedan afuera legítimamente —
+conviene aclararlo, pero no es un dato faltante.

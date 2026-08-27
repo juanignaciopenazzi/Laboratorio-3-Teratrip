@@ -44,9 +44,19 @@ PURPLE_DARK = colors.HexColor("#3b0764")
 PURPLE_MID = colors.HexColor("#5b21b6")
 GRAY_ROW = colors.HexColor("#faf7fc")
 
+# 14 columnas. airline y hotel_name se agregaron despues de detectar que los
+# registros ingresados por documento quedaban sin proveedor mientras si tenian
+# product_type: un "package" sin aerolinea ni hotel es un dato incoherente
+# contra el resto de la tabla.
+#
+# La regla la fija el dataset base, sin excepciones en 500.000 filas:
+#   flight  -> solo airline
+#   hotel   -> solo hotel_name
+#   package -> AMBOS
 HEADERS = [
     "booking_id", "booking_date", "customer_id", "customer_name",
     "customer_country", "destination_city", "product_type", "status",
+    "airline", "hotel_name",
     "total_amount", "payment_amount", "payment_status", "payment_method",
 ]
 
@@ -66,15 +76,15 @@ HEADERS = [
 # booking_id en serie B9000xx: el dataset base llega hasta B500000, no colisionan.
 
 ROWS_LOTE_A = [
-    # id        fecha         cliente     nombre              pais         destino             producto   estado       total    pagado   pago_estado  metodo
-    ["B900001", "2026-08-25", "C000001", "Carlos Rodriguez", "Italy",     "Madrid",           "package", "confirmed", "1850.00", "1850.00", "approved", "credit_card"],
-    ["B900002", "2026-08-25", "C003923", "Diego Gomez",      "Brazil",    "Salvador de Bahia", "flight",  "confirmed",  "740.50",  "740.50", "approved", "debit_card"],
-    ["B900003", "2026-08-26", "C012500", "Mateo Rivera",     "Peru",      "Cusco",            "hotel",   "confirmed",  "980.00",  "600.00", "approved", "bank_transfer"],
-    ["B900004", "2026-08-26", "C045000", "Valentina Rojas",  "Argentina", "Bariloche",        "package", "cancelled",  "1320.00",    "0.00", "rejected", "credit_card"],
-    ["B900005", "2026-08-27", "C900001", "Sofia Marchetti",  "Uruguay",   "Punta del Este",   "hotel",   "confirmed",  "560.75",  "560.75", "approved", "wallet"],
-    ["B900006", "2026-08-27", "C900002", "Tomas Herrera",    "Chile",     "Valparaiso",       "flight",  "pending",    "430.00",    "0.00", "pending",  "debit_card"],
-    ["B900007", "2026-08-28", "C900003", "Camila Duarte",    "Paraguay",  "Iguazu",           "package", "confirmed", "1590.90", "1590.90", "approved", "credit_card"],
-    ["B900008", "2026-08-28", "C900004", "Bruno Salgado",    "Brazil",    "Florianopolis",    "hotel",   "confirmed",  "820.00",  "820.00", "approved", "cash"],
+    # id        fecha         cliente     nombre              pais         destino             producto   estado       aerolinea             hotel                        total    pagado   pago_estado  metodo
+    ["B900001", "2026-08-25", "C000001", "Carlos Rodriguez", "Italy",     "Madrid",           "package", "confirmed", "Latamundo Air",      "Gran Vía Suites",           "1850.00", "1850.00", "approved", "credit_card"],
+    ["B900002", "2026-08-25", "C003923", "Diego Gomez",      "Brazil",    "Salvador de Bahia", "flight",  "confirmed", "Rio Plata Airlines", "",                          "740.50",  "740.50", "approved", "debit_card"],
+    ["B900003", "2026-08-26", "C012500", "Mateo Rivera",     "Peru",      "Cusco",            "hotel",   "confirmed", "",                   "Inti Valley Lodge",         "980.00",  "600.00", "approved", "bank_transfer"],
+    ["B900004", "2026-08-26", "C045000", "Valentina Rojas",  "Argentina", "Bariloche",        "package", "cancelled", "Patagonian Fly",     "Nahuel Lake Resort",        "1320.00",    "0.00", "rejected", "credit_card"],
+    ["B900005", "2026-08-27", "C900001", "Sofia Marchetti",  "Uruguay",   "Punta del Este",   "hotel",   "confirmed", "",                   "Brava Beach Hotel",         "560.75",  "560.75", "approved", "wallet"],
+    ["B900006", "2026-08-27", "C900002", "Tomas Herrera",    "Chile",     "Valparaiso",       "flight",  "pending",   "Pacifico Air",       "",                          "430.00",    "0.00", "pending",  "debit_card"],
+    ["B900007", "2026-08-28", "C900003", "Camila Duarte",    "Paraguay",  "Iguazu",           "package", "confirmed", "Andes Air",          "Cataratas Garden Inn",      "1590.90", "1590.90", "approved", "credit_card"],
+    ["B900008", "2026-08-28", "C900004", "Bruno Salgado",    "Brazil",    "Florianopolis",    "hotel",   "confirmed", "",                   "Ilha Norte Suites",         "820.00",  "820.00", "approved", "cash"],
 ]
 
 # Lote B -- reservado para la Prueba 4 del walkthrough.
@@ -88,12 +98,12 @@ ROWS_LOTE_A = [
 # booking_id en serie B91xxxx para no colisionar ni con el dataset base
 # (llega a B500000) ni con el lote A (B9000xx).
 ROWS_LOTE_B = [
-    ["B910001", "2026-08-29", "C007777", "Tomas Flores",   "Peru",      "Puerto Madryn", "package", "confirmed", "2140.00", "2140.00", "approved", "credit_card"],
-    ["B910002", "2026-08-29", "C021000", "Agustin Gomez",  "Colombia",  "Lima",          "flight",  "confirmed",  "615.30",  "615.30", "approved", "debit_card"],
-    ["B910003", "2026-08-30", "C038450", "Sofia Sanchez",  "Colombia",  "Orlando",       "hotel",   "confirmed", "1275.00",  "800.00", "approved", "bank_transfer"],
-    ["B910004", "2026-08-30", "C910001", "Lucas Ferreyra", "Argentina", "Rome",          "package", "cancelled", "1980.50",    "0.00", "rejected", "credit_card"],
-    ["B910005", "2026-08-31", "C910002", "Julieta Ponce",  "Uruguay",   "Salta",         "flight",  "confirmed",  "395.00",  "395.00", "approved", "wallet"],
-    ["B910006", "2026-08-31", "C910003", "Martin Aguirre", "Chile",     "Aruba",         "hotel",   "confirmed",  "890.75",  "890.75", "approved", "cash"],
+    ["B910001", "2026-08-29", "C007777", "Tomas Flores",   "Peru",      "Puerto Madryn", "package", "confirmed", "Patagonian Fly",  "Golfo Nuevo Lodge",  "2140.00", "2140.00", "approved", "credit_card"],
+    ["B910002", "2026-08-29", "C021000", "Agustin Gomez",  "Colombia",  "Lima",          "flight",  "confirmed", "Andina Jet",      "",                   "615.30",  "615.30", "approved", "debit_card"],
+    ["B910003", "2026-08-30", "C038450", "Sofia Sanchez",  "Colombia",  "Orlando",       "hotel",   "confirmed", "",                "Sunshine Bay Hotel", "1275.00",  "800.00", "approved", "bank_transfer"],
+    ["B910004", "2026-08-30", "C910001", "Lucas Ferreyra", "Argentina", "Rome",          "package", "cancelled", "Nova Airlines",   "Trastevere Palace",  "1980.50",    "0.00", "rejected", "credit_card"],
+    ["B910005", "2026-08-31", "C910002", "Julieta Ponce",  "Uruguay",   "Salta",         "flight",  "confirmed", "Altura Airlines", "",                   "395.00",  "395.00", "approved", "wallet"],
+    ["B910006", "2026-08-31", "C910003", "Martin Aguirre", "Chile",     "Aruba",         "hotel",   "confirmed", "",                "Palm Coast Resort",  "890.75",  "890.75", "approved", "cash"],
 ]
 
 HEADER_FONT, HEADER_SIZE = "Helvetica-Bold", 7.5
@@ -133,13 +143,22 @@ def build(path, subtitulo, rows):
     widths = column_widths(rows)
     assert_headers_fit(widths)
 
-    page_w = landscape(A4)[0]
+    # La pagina se ensancha si la tabla no entra en A4 apaisado. Con 14 columnas
+    # el ancho necesario supera los 842pt de A4, y ReportLab NO avisa: dibuja la
+    # tabla igual y las ultimas columnas quedan fuera del area visible. Textract
+    # entonces devuelve una tabla incompleta, y el fallo se descubre recien al
+    # mirar los datos en Athena.
+    #
+    # Se prefiere ensanchar la pagina antes que achicar la fuente: el documento
+    # se lee por OCR, no se imprime, y una fuente mas chica degrada la extraccion.
     total_w = sum(widths)
-    margin = max((page_w - total_w) / 2, 10 * mm)
+    page_w = max(landscape(A4)[0], total_w + 20 * mm)
+    page_h = landscape(A4)[1]
+    margin = (page_w - total_w) / 2
 
     doc = SimpleDocTemplate(
         str(path),
-        pagesize=landscape(A4),
+        pagesize=(page_w, page_h),
         leftMargin=margin, rightMargin=margin,
         topMargin=14 * mm, bottomMargin=14 * mm,
         title="TeraTrip - Nuevas reservas",
@@ -181,7 +200,8 @@ def build(path, subtitulo, rows):
             "Documento generado para el Laboratorio Final. Datos ficticios. "
             "Una fila por reserva; los importes estan expresados en USD.", foot),
     ])
-    print(f"OK  {path.name}  ({len(rows)} reservas, {len(HEADERS)} columnas)")
+    print(f"OK  {path.name}  ({len(rows)} reservas, {len(HEADERS)} columnas, "
+          f"pagina {page_w:.0f}x{page_h:.0f}pt)")
 
 
 if __name__ == "__main__":

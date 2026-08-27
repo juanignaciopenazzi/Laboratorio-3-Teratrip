@@ -44,8 +44,8 @@ antes del `union` — nunca un union posicional a ciegas.
 | 8 | `customer_id` | `STRING` | Formato `C%06d`. `NULL` si la reserva quedó huérfana. |
 | 9 | `customer_name` | `STRING` | Nombre del cliente. |
 | 10 | `customer_country` | `STRING` | País del cliente (viene de `customers.country`). |
-| 11 | `airline` | `STRING` | Aerolínea del vuelo asociado. **`NULL` si la reserva no incluye vuelo, y siempre `NULL` en reservas ingresadas por documento** (el PDF no trae `flight_id`). |
-| 12 | `hotel_name` | `STRING` | Hotel asociado. **`NULL` si la reserva no incluye hotel, y siempre `NULL` en reservas ingresadas por documento.** |
+| 11 | `airline` | `STRING` | Aerolínea del vuelo asociado. **`NULL` cuando `product_type = 'hotel'`**, porque esa reserva no incluye vuelo. Presente en `flight` y en `package`. |
+| 12 | `hotel_name` | `STRING` | Hotel asociado. **`NULL` cuando `product_type = 'flight'`**, porque esa reserva no incluye alojamiento. Presente en `hotel` y en `package`. |
 | 13 | `total_amount` | `DOUBLE` | Monto total de la reserva. |
 | 14 | `confirmed_revenue` | `DOUBLE` | `total_amount` si `status = 'confirmed'`, si no `0.0`. |
 | 15 | `approved_paid_amount` | `DOUBLE` | Suma de los pagos con `payment_status = 'approved'`. `0.0` si no hay ninguno. |
@@ -176,8 +176,7 @@ sábana**.
 
 ## Mapeo del documento PDF (Fases 1 y 3)
 
-Los 12 campos mínimos del documento y su destino. Es el contrato que implementa la Lambda de
-normalización.
+Los 14 campos del documento y su destino. Es el contrato que implementa la Lambda de normalización.
 
 | Campo en el PDF | Destino |
 |---|---|
@@ -189,6 +188,8 @@ normalización.
 | `destination_city` | `destination_city` |
 | `product_type` | `product_type` |
 | `status` | `status` |
+| `airline` | `airline` |
+| `hotel_name` | `hotel_name` |
 | `total_amount` | `total_amount` |
 | `payment_amount` | insumo de `approved_paid_amount` |
 | `payment_status` | insumo de `approved_paid_amount` y `last_payment_method` |
@@ -197,6 +198,21 @@ normalización.
 Los campos derivados (3, 4, 14–20) **no** los calcula la normalización: los calcula el Glue Job del
 merge, para que exista una única fuente de verdad.
 
-`airline` y `hotel_name` quedan `NULL` en todo registro ingresado por documento. Es una limitación
-conocida que hay que documentar en la Knowledge Base: si el agente responde una pregunta sobre
-aerolíneas, esas reservas no aparecen.
+### Coherencia entre producto y proveedor
+
+`airline` y `hotel_name` vienen del propio documento, y el merge les aplica la misma regla que rige en
+el dataset base, verificada sin excepciones sobre sus 500.000 filas:
+
+```
+flight  -> airline,  hotel_name NULL
+hotel   -> hotel_name, airline NULL
+package -> AMBOS
+```
+
+La regla se impone **en el Glue Job**, no en la normalización: si el documento trajera una aerolínea en
+una reserva de tipo `hotel`, el campo se anula igual. Es el mismo criterio que `last_payment_method` —
+el merge es el único lugar donde viven las reglas de coherencia del esquema.
+
+La Lambda de normalización sí registra un aviso en el log cuando el proveedor esperado falta, pero **no
+descarta la fila**: `airline` y `hotel_name` no alimentan ningún campo derivado, y perder una reserva
+por un nombre de hotel ausente sería peor que dejarlo en `NULL`.

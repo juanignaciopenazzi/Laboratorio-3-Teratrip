@@ -21,19 +21,20 @@ from lambda_function import (  # noqa: E402
 HEADERS = [
     "booking_id", "booking_date", "customer_id", "customer_name",
     "customer_country", "destination_city", "product_type", "status",
+    "airline", "hotel_name",
     "total_amount", "payment_amount", "payment_status", "payment_method",
 ]
 
 # Las 8 filas del PDF de demo, tal como las devuelve la reconstruccion de Fase 2.
 FILAS_DEMO = [
-    ["B900001", "2026-08-25", "C000001", "Carlos Rodriguez", "Italy", "Madrid", "package", "confirmed", "1850.00", "1850.00", "approved", "credit_card"],
-    ["B900002", "2026-08-25", "C003923", "Diego Gomez", "Brazil", "Salvador de Bahia", "flight", "confirmed", "740.50", "740.50", "approved", "debit_card"],
-    ["B900003", "2026-08-26", "C012500", "Mateo Rivera", "Peru", "Cusco", "hotel", "confirmed", "980.00", "600.00", "approved", "bank_transfer"],
-    ["B900004", "2026-08-26", "C045000", "Valentina Rojas", "Argentina", "Bariloche", "package", "cancelled", "1320.00", "0.00", "rejected", "credit_card"],
-    ["B900005", "2026-08-27", "C900001", "Sofia Marchetti", "Uruguay", "Punta del Este", "hotel", "confirmed", "560.75", "560.75", "approved", "wallet"],
-    ["B900006", "2026-08-27", "C900002", "Tomas Herrera", "Chile", "Valparaiso", "flight", "pending", "430.00", "0.00", "pending", "debit_card"],
-    ["B900007", "2026-08-28", "C900003", "Camila Duarte", "Paraguay", "Iguazu", "package", "confirmed", "1590.90", "1590.90", "approved", "credit_card"],
-    ["B900008", "2026-08-28", "C900004", "Bruno Salgado", "Brazil", "Florianopolis", "hotel", "confirmed", "820.00", "820.00", "approved", "cash"],
+    ["B900001", "2026-08-25", "C000001", "Carlos Rodriguez", "Italy", "Madrid", "package", "confirmed", "Latamundo Air", "Gran Via Suites", "1850.00", "1850.00", "approved", "credit_card"],
+    ["B900002", "2026-08-25", "C003923", "Diego Gomez", "Brazil", "Salvador de Bahia", "flight", "confirmed", "Rio Plata Airlines", "", "740.50", "740.50", "approved", "debit_card"],
+    ["B900003", "2026-08-26", "C012500", "Mateo Rivera", "Peru", "Cusco", "hotel", "confirmed", "", "Inti Valley Lodge", "980.00", "600.00", "approved", "bank_transfer"],
+    ["B900004", "2026-08-26", "C045000", "Valentina Rojas", "Argentina", "Bariloche", "package", "cancelled", "Patagonian Fly", "Nahuel Lake Resort", "1320.00", "0.00", "rejected", "credit_card"],
+    ["B900005", "2026-08-27", "C900001", "Sofia Marchetti", "Uruguay", "Punta del Este", "hotel", "confirmed", "", "Brava Beach Hotel", "560.75", "560.75", "approved", "wallet"],
+    ["B900006", "2026-08-27", "C900002", "Tomas Herrera", "Chile", "Valparaiso", "flight", "pending", "Pacifico Air", "", "430.00", "0.00", "pending", "debit_card"],
+    ["B900007", "2026-08-28", "C900003", "Camila Duarte", "Paraguay", "Iguazu", "package", "confirmed", "Andes Air", "Cataratas Garden Inn", "1590.90", "1590.90", "approved", "credit_card"],
+    ["B900008", "2026-08-28", "C900004", "Bruno Salgado", "Brazil", "Florianopolis", "hotel", "confirmed", "", "Ilha Norte Suites", "820.00", "820.00", "approved", "cash"],
 ]
 
 
@@ -50,6 +51,47 @@ def test_documento_de_demo_completo():
     assert registros[3]["payment_method"] == "credit_card"
 
 
+def test_captura_proveedor_segun_tipo_de_producto():
+    """La regla del dataset base: flight -> solo airline, hotel -> solo hotel_name,
+    package -> ambos. Es el dato que faltaba y dejaba registros incoherentes."""
+    registros, _ = normalizar(HEADERS, FILAS_DEMO)
+    por_id = {r["booking_id"]: r for r in registros}
+
+    package = por_id["B900001"]          # Madrid, package
+    assert package["airline"] == "Latamundo Air"
+    assert package["hotel_name"] == "Gran Via Suites"
+
+    vuelo = por_id["B900002"]            # Salvador de Bahia, flight
+    assert vuelo["airline"] == "Rio Plata Airlines"
+    assert vuelo["hotel_name"] is None
+
+    alojamiento = por_id["B900003"]      # Cusco, hotel
+    assert alojamiento["airline"] is None
+    assert alojamiento["hotel_name"] == "Inti Valley Lodge"
+
+
+def test_todas_las_filas_del_lote_son_coherentes():
+    """Ninguna reserva puede quedar con un product_type sin su proveedor."""
+    esperado = {"flight": (True, False), "hotel": (False, True), "package": (True, True)}
+    registros, _ = normalizar(HEADERS, FILAS_DEMO)
+    for r in registros:
+        real = (r["airline"] is not None, r["hotel_name"] is not None)
+        assert real == esperado[r["product_type"]], (
+            r["booking_id"] + " " + r["product_type"] + ": " + repr(real))
+
+
+def test_proveedor_faltante_avisa_pero_no_descarta():
+    """airline y hotel_name no alimentan ningun campo derivado: perder la reserva
+    por un nombre de hotel ausente seria peor que dejarlo en NULL."""
+    fila = list(FILAS_DEMO[0])          # package
+    fila[8] = ""                        # sin airline
+    fila[9] = ""                        # sin hotel_name
+    registros, rechazos = normalizar(HEADERS, [fila])
+    assert not rechazos
+    assert registros[0]["airline"] is None
+    assert registros[0]["hotel_name"] is None
+
+
 def test_no_calcula_campos_derivados():
     """El contrato dice que los derivados son del Glue Job. Si aparecieran aca,
     habria dos fuentes de verdad para confirmed_revenue."""
@@ -63,6 +105,7 @@ def test_headers_con_otro_formato():
     """Textract puede devolver el header con mayusculas o espacios."""
     raros = ["Booking ID", "BOOKING-DATE", "Customer_Id", "Customer Name",
              "Customer Country", "Destination City", "Product Type", "Status",
+             "Airline", "Hotel Name",
              "Total Amount", "Payment Amount", "Payment Status", "Payment Method"]
     registros, rechazos = normalizar(raros, FILAS_DEMO[:1])
     assert len(registros) == 1 and not rechazos
@@ -71,7 +114,7 @@ def test_headers_con_otro_formato():
 
 def test_columnas_en_otro_orden():
     """El mapeo es por nombre, no por posicion."""
-    orden = [11, 0, 5, 1, 7, 8, 9, 10, 2, 3, 4, 6]
+    orden = [13, 0, 5, 1, 7, 8, 9, 10, 11, 12, 2, 3, 4, 6]
     header = [HEADERS[i] for i in orden]
     fila = [FILAS_DEMO[0][i] for i in orden]
     registros, rechazos = normalizar(header, [fila])
@@ -129,21 +172,21 @@ def test_status_fuera_de_dominio_se_descarta():
 def test_payment_method_desconocido_queda_nulo_sin_descartar():
     """Solo alimenta last_payment_method: no justifica perder la reserva."""
     fila = list(FILAS_DEMO[0])
-    fila[11] = "cripto"
+    fila[13] = "cripto"
     registros, rechazos = normalizar(HEADERS, [fila])
     assert not rechazos
     assert registros[0]["payment_method"] is None
 
 
 def test_fila_vacia_no_cuenta_como_rechazo():
-    registros, rechazos = normalizar(HEADERS, [FILAS_DEMO[0], [""] * 12])
+    registros, rechazos = normalizar(HEADERS, [FILAS_DEMO[0], [""] * 14])
     assert len(registros) == 1
     assert rechazos == []
 
 
 def test_celda_faltante_no_rompe():
     """Si la fila viene mas corta que el header, los campos que sobran son None."""
-    corta = FILAS_DEMO[0][:8]
+    corta = FILAS_DEMO[0][:10]
     registros, rechazos = normalizar(HEADERS, [corta])
     assert registros == []
     assert "total_amount" in rechazos[0]["motivo"]
@@ -153,7 +196,7 @@ def test_headers_partidos_fallan_con_mensaje_util():
     """Es el modo de falla de los PDFs de ejemplo: 'customer_i' + 'd'."""
     partidos = ["booking_id", "booking_date", "customer_i", "customer_name",
                 "customer_", "destination_", "product_type", "status",
-                "total_amount", "payment_", "payment_", "payment_"]
+                "airline", "hotel_", "total_amount", "payment_", "payment_", "payment_"]
     try:
         normalizar(partidos, FILAS_DEMO[:1])
     except SinDatos as e:
@@ -165,8 +208,8 @@ def test_headers_partidos_fallan_con_mensaje_util():
 
 def test_mapeo_de_alias_en_espanol():
     header = ["id_reserva", "fecha", "id_cliente", "cliente", "pais", "destino",
-              "tipo_producto", "estado", "monto_total", "monto_pagado",
-              "estado_pago", "metodo_pago"]
+              "tipo_producto", "estado", "aerolinea", "nombre_hotel",
+              "monto_total", "monto_pagado", "estado_pago", "metodo_pago"]
     mapa, desconocidos = mapear_headers(header)
     assert not desconocidos
     assert sorted(mapa.values()) == sorted(HEADERS)

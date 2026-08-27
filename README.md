@@ -43,7 +43,7 @@ Agente:   [ teratrip-kb-target ]  →  recupera la definición de la métrica
 ### Parte A — Ingesta inteligente
 
 <p align="center">
-  <img src="./docs/diagrams/Parte_A-Ingesta.png" width="900" alt="Arquitectura Parte A — Ingesta inteligente de reservas desde documentos">
+  <img src="./docs/diagrams/Parte_A-Ingesta.svg" width="900" alt="Arquitectura Parte A — Ingesta inteligente de reservas desde documentos">
 </p>
 
 El `run_id` deriva del **eTag** del objeto, no de un UUID: si S3 emite el evento dos veces, ambas
@@ -54,7 +54,7 @@ rompió»*.
 ### Parte B — Analytics conversacional
 
 <p align="center">
-  <img src="./docs/diagrams/Parte_B-analytics.png" width="900" alt="Arquitectura Parte B — Analytics conversacional sobre Athena">
+  <img src="./docs/diagrams/Parte_B-analytics.svg" width="900" alt="Arquitectura Parte B — Analytics conversacional sobre Athena">
 </p>
 
 Los dos targets del Gateway cumplen funciones distintas: la Knowledge Base aporta **contexto de
@@ -77,7 +77,7 @@ registros de la tabla nunca se cargan en RAG.
 | La traza identifica las herramientas usadas | Targets del Gateway | Traza del Harness: KB → Athena |
 | La prueba end-to-end refleja el cambio | Pipeline completo | [`golden_questions.md`](tests/golden_questions.md) · ancla `Puerto Madryn` |
 | Permisos IAM de **mínimo privilegio** | [`src/iam/`](src/iam/) — 7 policies | Sin `Resource: "*"` ni acciones con comodín |
-| Entregable: arquitectura + problemas | [`INFORME_TECNICO_LAB3.md`](docs/INFORME_TECNICO_LAB3.md) | 10 problemas documentados + 4 preguntas de investigación |
+| Entregable: arquitectura + problemas | [`INFORME_TECNICO_LAB3.md`](docs/INFORME_TECNICO_LAB3.md) | 12 problemas documentados + 4 preguntas de investigación |
 
 ---
 
@@ -116,10 +116,14 @@ calculados.
 
 | | |
 |---|---|
-| Reservas | **500.008** (500.000 base + 8 ingresadas por documento) |
-| Revenue confirmado | 332.793.336,98 |
+| Reservas | **~500 mil**, y crece con cada documento ingresado |
 | Tasa de cancelación | 15,00 % |
 | Cobertura de pagos | 83,30 % |
+| Producto con más revenue | `package`, sobre el 54 % del total |
+
+El conteo exacto no se documenta a propósito: cambia con cada ingesta, y una cifra fija en el README
+quedaría desactualizada apenas se corra una demo. Los valores de verificación al centavo viven en
+[`tests/golden_questions.md`](tests/golden_questions.md), que es donde tiene sentido mantenerlos.
 
 El esquema completo, los dominios de valores y las reglas de derivación están en
 [**`docs/schema_contract.md`**](docs/schema_contract.md), que es la **fuente única**: de ahí se derivan
@@ -157,6 +161,7 @@ Laboratorio 3/
 │   ├── queries/ ······················ validaciones SQL para Athena
 │   ├── monitoring/ ··················· dashboard de CloudWatch y Logs Insights
 │   └── pdf/ ·························· generador y documentos de prueba
+│       └── ejemplo/ ················· los 5 PDF de referencia de la consigna
 │
 └── tests/
     ├── test_textract_reconstruct.py ·· reconstrucción de tablas de Textract

@@ -45,8 +45,17 @@ def _cliente(servicio):
 CAMPOS = [
     "booking_id", "booking_date", "customer_id", "customer_name",
     "customer_country", "destination_city", "product_type", "status",
+    "airline", "hotel_name",
     "total_amount", "payment_amount", "payment_status", "payment_method",
 ]
+
+# Que proveedor corresponde a cada tipo de producto. La regla la fija el dataset
+# base y se cumple sin excepciones en sus 500.000 filas.
+PROVEEDOR_ESPERADO = {
+    "flight":  ("airline",),
+    "hotel":   ("hotel_name",),
+    "package": ("airline", "hotel_name"),
+}
 
 # Campos cuyo valor alimenta un campo derivado monetario o de estado. Si alguno
 # viene mal, la fila se descarta: un status invalido no rompe nada visiblemente,
@@ -87,6 +96,10 @@ ALIAS = {
     "metodo_pago": "payment_method",
     "amount": "total_amount",
     "paid_amount": "payment_amount",
+    "aerolinea": "airline",
+    "linea_aerea": "airline",
+    "hotel": "hotel_name",
+    "nombre_hotel": "hotel_name",
 }
 
 
@@ -203,6 +216,8 @@ def normalizar_fila(celdas, mapa, numero_fila):
         "customer_name": parsear_texto(crudo.get("customer_name")),
         "customer_country": parsear_texto(crudo.get("customer_country")),
         "destination_city": parsear_texto(crudo.get("destination_city")),
+        "airline": parsear_texto(crudo.get("airline")),
+        "hotel_name": parsear_texto(crudo.get("hotel_name")),
         "product_type": parsear_dominio(crudo.get("product_type"), "product_type"),
         "status": parsear_dominio(crudo.get("status"), "status"),
         "total_amount": parsear_monto(crudo.get("total_amount")),
@@ -225,6 +240,19 @@ def normalizar_fila(celdas, mapa, numero_fila):
             "motivo": "montos negativos",
             "valores_crudos": crudo,
         }
+
+    # Coherencia entre producto y proveedor. NO se descarta la fila: airline y
+    # hotel_name no alimentan ningun campo derivado, y perder una reserva por un
+    # nombre de hotel faltante es peor que dejarlo en NULL. Se avisa por log para
+    # que el hueco se detecte antes de que alguien lo encuentre consultando.
+    faltan_proveedores = [
+        c for c in PROVEEDOR_ESPERADO.get(registro["product_type"], ())
+        if not registro[c]
+    ]
+    if faltan_proveedores:
+        print("AVISO fila " + str(numero_fila) + " (" + str(registro["booking_id"]) +
+              "): product_type '" + str(registro["product_type"]) +
+              "' sin " + ", ".join(faltan_proveedores))
 
     return registro, None
 

@@ -12,6 +12,8 @@ resultante.
 
 ### Parte A — Ingesta inteligente de documentos
 
+![Arquitectura de la Parte A](diagrams/Parte_A-Ingesta.svg)
+
 ```
 PDF (1 página, tabla de 6–10 reservas)
    ↓ PutObject
@@ -29,6 +31,8 @@ Glue Data Catalog → Athena  teratrip_db.booking_analytics
 ```
 
 ### Parte B — Analytics conversacional
+
+![Arquitectura de la Parte B](diagrams/Parte_B-analytics.svg)
 
 ```
 Usuario (lenguaje natural)
@@ -57,7 +61,7 @@ laboratorio necesite correr dentro de una VPC** —solo hablan con S3—, lo que
 las subredes, el Internet Gateway, el Security Group con autorreferencia y el VPC Gateway Endpoint
 para S3.
 
-Baseline obtenido: **500.000 reservas**, 0 huérfanas, 0 duplicados, validado con las 8 consultas de
+Baseline obtenido: **~500 mil reservas**, 0 huérfanas, 0 duplicados, validado con las 8 consultas de
 `src/queries/00_athena_validation.sql` contra valores precalculados en `docs/schema_contract.md`.
 
 ### Decisiones de diseño
@@ -96,7 +100,7 @@ una fila de encabezado espuria.
 ### 2.2 `sys.exit(0)` marca un Glue Job como FAILED
 
 **Síntoma:** al probar idempotencia, el anti-join descartaba correctamente los 8 `booking_id` y la
-tabla quedaba intacta en 500.008, pero la Step Function terminaba en `FalloDelPipeline` con
+tabla quedaba intacta, pero la Step Function terminaba en `FalloDelPipeline` con
 `Error Category: SYSTEM_EXIT_ERROR; SystemExit: 0`.
 
 **Causa:** el runner de Glue intercepta cualquier `SystemExit` y lo reporta como error, sin mirar el
@@ -216,6 +220,65 @@ una demo más vistosa.
 **Consecuencia:** la evidencia de la capa de código se obtiene por **invocación directa** de la Lambda.
 Pasar por el agente solo demostraría que el guard funciona cuando el modelo colabora, que es el caso
 que no preocupa: la amenaza es un modelo al que convencieron.
+
+### 2.11 Los registros ingresados por documento quedaban sin proveedor
+
+**Síntoma:** consultando en Athena las reservas ingresadas por documento, todas tenían `product_type`
+pero `airline` y `hotel_name` en `NULL`. En las de tipo `package` faltaban **las dos**, lo que es
+directamente incoherente: un paquete combina vuelo y alojamiento, así que por definición tiene ambos.
+
+**Causa:** el diseño original asumía que el documento no podía aportar esos datos, porque no trae
+`flight_id` ni `hotel_id` contra los cuales joinear. El Glue Job los escribía como
+`CAST(NULL AS STRING)` y se documentó como *limitación conocida* en la Knowledge Base.
+
+Era una limitación autoimpuesta. El documento **puede** traer el nombre de la aerolínea y del hotel
+como texto; no hace falta ningún join. La supuesta limitación era en realidad un campo que nunca se
+pidió.
+
+**Regla verificada contra el dataset base**, sin una sola excepción en 500.000 filas:
+
+| `product_type` | `flight_id` | `hotel_id` | Filas |
+|---|---|---|---|
+| `flight` | sí | no | 200.289 |
+| `hotel` | no | sí | 149.964 |
+| `package` | sí | sí | 149.747 |
+
+**Solución**, en cuatro capas:
+
+1. El **documento** pasa de 12 a 14 columnas, con `airline` y `hotel_name` completadas según el
+   `product_type` de cada fila.
+2. La **normalización** las mapea y registra un aviso en el log si falta la que corresponde. **No
+   descarta la fila**: ninguno de los dos campos alimenta un campo derivado, y perder una reserva por un
+   nombre de hotel ausente sería peor que dejarlo en `NULL`.
+3. El **merge** impone la regla: `CASE WHEN product_type IN ('flight','package') THEN airline END`. Si
+   el documento trajera una aerolínea en una reserva de tipo `hotel`, el campo se anula igual. Es el
+   mismo criterio que `last_payment_method` — el merge es el único lugar donde viven las reglas de
+   coherencia del esquema.
+4. El **diccionario de datos de la KB** deja de declararlo como limitación y explica la regla real: un
+   `NULL` en esos campos significa que el producto no incluye ese servicio, no que falte el dato.
+
+**Efecto colateral que casi pasa desapercibido:** con 14 columnas la tabla mide 910 pt y una página A4
+apaisada tiene 842. ReportLab **no avisa**: dibuja la tabla igual y las últimas columnas quedan fuera
+del área visible. Textract habría devuelto una tabla incompleta y el fallo se habría descubierto recién
+al mirar los datos en Athena. El generador ahora ensancha la página en lugar de achicar la fuente: el
+documento se lee por OCR, no se imprime, y una fuente más chica degrada la extracción.
+
+### 2.12 El agente generaba SQL sin consultar el diccionario de datos
+
+**Síntoma:** ante una consulta que cruzaba varias columnas, el agente escribió el SQL directamente, sin
+recuperar el diccionario de datos de la Knowledge Base para confirmar cómo se llamaba cada campo.
+
+**Por qué importa:** el SQL se ejecuta sin error y devuelve un número. Nada falla visiblemente. Pero
+mide otra cosa, y una respuesta plausible y equivocada es peor que un error, porque nadie la detecta.
+
+**Solución:** el system prompt define ahora un **procedimiento explícito para consultas complejas** —más
+de dos columnas, más de una dimensión, un `WITH`, o cualquier campo no mencionado antes en la
+conversación—: consultar el diccionario y confirmar el nombre literal y el tipo de **cada** columna
+involucrada, incluidas las del `WHERE`, el `GROUP BY` y el `ORDER BY`; después la definición de la
+métrica si la hay; y recién entonces escribir el SQL.
+
+Es la contracara de la instrucción original, que decía cuándo consultar la KB pero no en qué orden ni
+con qué exhaustividad.
 
 ---
 

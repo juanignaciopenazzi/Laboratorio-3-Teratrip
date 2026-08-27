@@ -77,6 +77,8 @@ SCHEMA_NUEVOS = StructType([
     StructField("destination_city", StringType(), True),
     StructField("product_type", StringType(), True),
     StructField("status", StringType(), True),
+    StructField("airline", StringType(), True),
+    StructField("hotel_name", StringType(), True),
     StructField("total_amount", DoubleType(), True),
     StructField("payment_amount", DoubleType(), True),
     StructField("payment_status", StringType(), True),
@@ -86,8 +88,16 @@ SCHEMA_NUEVOS = StructType([
 # Campos derivados. Replica el SQL del Lab 2 con las dos adaptaciones que impone
 # el ingreso por documento, ambas documentadas en docs/schema_contract.md:
 #
-#   1. airline y hotel_name van NULL: el PDF no trae flight_id ni hotel_id, asi
-#      que no hay contra que joinear. Limitacion conocida, declarada en la KB.
+#   1. airline y hotel_name vienen del propio documento, no de un join contra
+#      flights ni hotels. Se aplica la regla del dataset base, que se cumple sin
+#      excepciones en sus 500.000 filas:
+#          flight  -> solo airline
+#          hotel   -> solo hotel_name
+#          package -> AMBOS
+#      La regla se impone ACA y no en la normalizacion: si el documento trae una
+#      aerolinea en una reserva de tipo hotel, el campo se anula igual. Es el
+#      mismo criterio que last_payment_method -- el merge es el unico lugar donde
+#      viven las reglas de coherencia del esquema.
 #   2. El documento trae UN pago por reserva, no la tabla payments. En el Lab 2
 #      approved_paid_amount y last_payment_method salen de un subquery filtrado
 #      por payment_status = 'approved'; aca esa condicion se aplica fila a fila.
@@ -104,6 +114,8 @@ SQL_DERIVADOS = """
             customer_id,
             customer_name,
             customer_country,
+            airline,
+            hotel_name,
             CAST(total_amount AS DOUBLE)              AS total,
             payment_status,
             payment_method,
@@ -123,8 +135,8 @@ SQL_DERIVADOS = """
         customer_id,
         customer_name,
         customer_country,
-        CAST(NULL AS STRING)                         AS airline,
-        CAST(NULL AS STRING)                         AS hotel_name,
+        CASE WHEN product_type IN ('flight', 'package') THEN airline    END AS airline,
+        CASE WHEN product_type IN ('hotel',  'package') THEN hotel_name END AS hotel_name,
         total                                        AS total_amount,
         CASE WHEN status = 'confirmed' THEN total ELSE 0.0 END AS confirmed_revenue,
         aprobado                                     AS approved_paid_amount,

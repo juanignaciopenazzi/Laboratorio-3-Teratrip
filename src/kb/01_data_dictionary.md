@@ -121,16 +121,28 @@ primero conviene verificar cómo está escrito realmente el valor.
 SELECT DISTINCT destination_city FROM booking_analytics ORDER BY destination_city;
 ```
 
-## Limitación conocida: reservas ingresadas por documento
+## Cuándo `airline` y `hotel_name` están vacíos
 
-Algunas reservas de `booking_analytics` no vienen del sistema operacional sino de documentos PDF
-procesados automáticamente. En esas filas, **`airline` y `hotel_name` son siempre `NULL`**, porque el
-documento no identifica el vuelo ni el hotel contratado.
+Que estos dos campos sean `NULL` **no significa que falte el dato**: significa que ese producto no
+incluye ese servicio. La regla depende de `product_type` y se cumple en toda la tabla:
 
-Esto tiene una consecuencia práctica: cualquier análisis por aerolínea o por hotel deja afuera esas
-reservas. No es un error de datos ni un dato faltante por descuido; es una limitación del origen. Al
-responder una pregunta sobre aerolíneas u hoteles conviene aclararlo.
+| `product_type` | `airline` | `hotel_name` |
+|---|---|---|
+| `flight` | tiene valor | `NULL` |
+| `hotel` | `NULL` | tiene valor |
+| `package` | tiene valor | tiene valor |
 
-Todo el resto de los campos de esas reservas, incluidos los montos y los campos derivados, se calcula
-con exactamente la misma lógica que para las reservas del sistema operacional. En cualquier otro
-aspecto son indistinguibles.
+Un paquete combina vuelo y alojamiento, así que trae los dos. Un vuelo suelto no tiene hotel asociado, y
+una reserva de alojamiento no tiene aerolínea.
+
+La consecuencia al responder: un análisis agrupado por `airline` deja afuera las reservas de tipo
+`hotel`, y uno por `hotel_name` deja afuera las de tipo `flight`. Eso es correcto y esperable, pero
+conviene aclararlo, porque el total de esos agrupamientos no coincide con el total de reservas.
+
+```sql
+-- Reservas que incluyen vuelo (flight + package)
+SELECT COUNT(*) FROM booking_analytics WHERE airline IS NOT NULL;
+```
+
+Esto vale para **todas** las reservas por igual, vengan del sistema operacional o de un documento
+procesado automáticamente: ambas vías producen filas con la misma estructura y las mismas reglas.
