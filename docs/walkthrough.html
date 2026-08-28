@@ -581,7 +581,33 @@ code{
   </div>
 </section>
 
-<!-- ═══ 11 · Cierre ═══════════════════════════════════════════ -->
+<!-- ═══ 11 · Mejoras y Costos ═════════════════════════════════ -->
+<section class="slide">
+  <h2>Posibles mejoras y optimización de costos</h2>
+  <div class="body">
+    <div style="display: flex; gap: 50px; margin-top: 10px;">
+      
+      <div style="flex: 1;">
+        <h3 style="font-size: 26px; color: var(--lime); margin-bottom: 20px; border-bottom: 1px solid var(--line-mid); padding-bottom: 10px; display: inline-block;">Evolución de la arquitectura</h3>
+        <ul style="line-height: 1.8; color: var(--ink-2); margin-left: 0; padding-left: 25px;">
+          <li style="margin-bottom: 15px;"><b>Apache Iceberg:</b> Reemplazar el <i>anti-join</i> en AWS Glue por <i>upserts</i> nativos (MERGE INTO).</li>
+          <li style="margin-bottom: 15px;"><b>Caché semántica (IA):</b> Cachear preguntas frecuentes para bajar latencia y tokens.</li>
+        </ul>
+      </div>
+
+      <div style="flex: 1;">
+        <h3 style="font-size: 26px; color: var(--lime); margin-bottom: 20px; border-bottom: 1px solid var(--line-mid); padding-bottom: 10px; display: inline-block;">Análisis FinOps y Costos</h3>
+        <ul style="line-height: 1.8; color: var(--ink-2); margin-left: 0; padding-left: 25px;">
+          <li style="margin-bottom: 15px;"><b>Micro-batching en AWS Glue:</b> Agrupar la ingesta de PDFs en lotes para licuar los costos de <i>cold-start</i> y facturación mínima.</li>
+          <li style="margin-bottom: 15px;"><b>Base vectorial <i>Scale-to-Zero</i>:</b> Reemplazar OpenSearch por opciones sin costo base (ej. Pinecone) para apagar la Knowledge Base sin uso.</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 12 · Cierre ═══════════════════════════════════════════ -->
 <section class="slide closing">
   <div class="cover-block">
     <div class="eyebrow">Gracias</div>
