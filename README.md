@@ -96,7 +96,7 @@ python tests/test_normalize.py
 python tests/test_sql_guard.py
 ```
 
-**54 tests**, entre ellos los que cubren los casos que rompen en producción: una celda vacía que
+**57 tests**, entre ellos los que cubren los casos que rompen en producción: una celda vacía que
 desalinea la fila, un encabezado partido en dos líneas, `'DROP Center'` como nombre de ciudad, SQL
 apilado escondido detrás de un comentario, y `ORDER BY … DESC` que una denylist ingenua rechazaría.
 
